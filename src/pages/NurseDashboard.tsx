@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import {
   Calendar, Clock, ArrowLeftRight, Bell, User, LogOut, Menu, X,
-  Activity, Building2, ChevronRight, Loader2, BellRing, Camera
+  Activity, Building2, ChevronRight, Loader2, BellRing, Camera, Edit3, MoreVertical
 } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import logo from "@/assets/logo.png";
@@ -52,12 +52,22 @@ interface NurseProfile {
 const NurseDashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"schedule" | "swap" | "notifications" | "profile">("schedule");
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
   const [nurseProfile, setNurseProfile] = useState<NurseProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showPushBanner, setShowPushBanner] = useState(false);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => setProfileMenuOpen(false);
+    if (profileMenuOpen) {
+      document.addEventListener("click", handleClickOutside);
+      return () => document.removeEventListener("click", handleClickOutside);
+    }
+  }, [profileMenuOpen]);
 
   // Prompt for push notifications
   useEffect(() => {
@@ -198,7 +208,7 @@ const NurseDashboard = () => {
       </aside>
 
       <main className="flex-1">
-        <header className="flex items-center justify-between border-b bg-card px-4 py-3 md:px-6">
+        <header className="flex items-center justify-between border-b bg-card px-4 py-3 md:px-6 relative">
           <button onClick={() => setSidebarOpen(true)} className="md:hidden"><Menu size={22} /></button>
           <div>
             <h1 className="text-lg font-bold text-foreground">Welcome, <span className="text-primary">{firstName}</span></h1>
@@ -206,8 +216,63 @@ const NurseDashboard = () => {
               {nurseProfile?.divisions?.name || "No Division"} • {nurseProfile?.departments?.name || "Unassigned"}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">{initials}</div>
+
+          {/* Profile Menu */}
+          <div className="relative" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary hover:bg-primary/20 transition-colors"
+            >
+              {initials}
+            </button>
+
+            {profileMenuOpen && (
+              <div className="absolute right-0 mt-2 w-56 rounded-lg border border-border bg-card shadow-lg z-50">
+                {/* Profile Info */}
+                <div className="border-b px-4 py-3">
+                  <p className="text-sm font-semibold text-foreground">{nurseProfile?.name || "Nurse"}</p>
+                  <p className="text-xs text-muted-foreground">{nurseProfile?.phone}</p>
+                </div>
+
+                {/* Menu Items */}
+                <div className="py-1">
+                  <button
+                    onClick={() => {
+                      navigate("/nurse-profile");
+                      setProfileMenuOpen(false);
+                    }}
+                    className="flex w-full items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-accent transition-colors"
+                  >
+                    <User size={16} />
+                    <span>View Profile</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      navigate("/nurse-profile/edit");
+                      setProfileMenuOpen(false);
+                    }}
+                    className="flex w-full items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-accent transition-colors"
+                  >
+                    <Edit3 size={16} />
+                    <span>Edit Profile</span>
+                  </button>
+
+                  <div className="border-t my-1"></div>
+
+                  <button
+                    onClick={() => {
+                      handleSignOut();
+                      setProfileMenuOpen(false);
+                    }}
+                    className="flex w-full items-center gap-3 px-4 py-2 text-sm text-destructive hover:bg-accent transition-colors"
+                  >
+                    <LogOut size={16} />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </header>
 
@@ -641,6 +706,7 @@ const NotificationsView = ({ userId, onRead }: { userId: string; onRead: () => v
 
 const ProfileView = ({ profile }: { profile: NurseProfile }) => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -712,7 +778,7 @@ const ProfileView = ({ profile }: { profile: NurseProfile }) => {
   return (
     <div className="animate-fade-in">
       <div className="rounded-xl bg-card p-6 shadow-card">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <div className="relative group">
             <Avatar className="h-16 w-16 text-2xl">
               {photoUrl ? (
@@ -739,10 +805,19 @@ const ProfileView = ({ profile }: { profile: NurseProfile }) => {
               disabled={uploading}
             />
           </div>
-          <div>
+          <div className="flex-1">
             <h2 className="text-xl font-bold text-foreground">{profile.name}</h2>
             <p className="text-sm text-muted-foreground">Registered Nurse</p>
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate("/nurse-profile/edit")}
+            className="w-full sm:w-auto"
+          >
+            <Edit3 size={16} className="mr-2" />
+            Edit Profile
+          </Button>
         </div>
 
         <div className="mt-6 grid gap-4 md:grid-cols-2">

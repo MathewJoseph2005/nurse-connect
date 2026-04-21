@@ -162,7 +162,16 @@ router.post("/query", requireAuth, async (req, res) => {
 
     if (action === "update") {
       await Model.updateMany(mongoQuery, { $set: payload });
-      return res.json({ data: [] });
+      
+      // Fetch the updated documents to return
+      let q = Model.find(mongoQuery);
+      if (populateMap[table]) {
+        for (const p of populateMap[table]) q = q.populate(p);
+      }
+      const docs = await q.lean();
+      const shaped = docs.map((d) => shapeRow(table, d));
+      
+      return res.json({ data: shaped });
     }
 
     if (action === "delete") {

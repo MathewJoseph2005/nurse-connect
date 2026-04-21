@@ -167,15 +167,25 @@ class QueryBuilder {
 
   update(payload: any) {
     const run = async () => {
-      await apiRequest("/db/query", {
+      const res = await apiRequest("/db/query", {
         method: "POST",
         body: JSON.stringify({ table: this.table, action: "update", payload, filters: this.filters }),
       });
-      return { data: null, error: null };
+      return { data: res.data || [], error: null };
     };
+    
+    const selectOps = {
+      select: async () => {
+        return run();
+      },
+    };
+    
     return {
-      eq: async (field: string, value: any) => {
+      eq: (field: string, value: any) => {
         this.eq(field, value);
+        return selectOps;
+      },
+      select: async () => {
         return run();
       },
       then: (resolve: (value: any) => any, reject?: (reason: any) => any) => run().then(resolve, reject),
@@ -221,9 +231,9 @@ export const supabase = {
           body: JSON.stringify({
             email: args.email,
             password: args.password,
+            confirmPassword: args.password,
             name: args.options?.data?.full_name || args.options?.data?.name || "User",
             phone: args.options?.data?.phone || null,
-            role: args.options?.data?.role || "nurse",
           }),
         });
         setSession(res.session.access_token, res.user);

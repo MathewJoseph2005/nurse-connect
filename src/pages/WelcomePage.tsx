@@ -44,9 +44,7 @@ const WelcomePage = () => {
             <a href="#location" className="rounded-lg px-3 py-2 text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10 transition-colors">Location</a>
             <a href="#awards" className="rounded-lg px-3 py-2 text-sm font-medium text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10 transition-colors">Accreditations</a>
             <div className="ml-4 flex gap-2">
-              <Link to="/nurse-login"><Button variant="pink" size="sm">Nurse Portal</Button></Link>
-              <Link to="/headnurse-login"><Button variant="secondary" size="sm" className="font-semibold">Head Nurse</Button></Link>
-              <Link to="/admin-login"><Button variant="secondary" size="sm" className="font-semibold">Admin</Button></Link>
+              <Link to="/login"><Button variant="pink" size="sm">Login</Button></Link>
             </div>
           </nav>
 
@@ -65,9 +63,7 @@ const WelcomePage = () => {
               <a href="#location" className="rounded-lg px-3 py-2 text-sm font-medium text-primary-foreground/80">Location</a>
               <a href="#awards" className="rounded-lg px-3 py-2 text-sm font-medium text-primary-foreground/80">Accreditations</a>
               <div className="mt-2 flex flex-col gap-2">
-                <Link to="/nurse-login"><Button variant="pink" size="sm" className="w-full">Nurse Portal</Button></Link>
-                <Link to="/headnurse-login"><Button variant="secondary" size="sm" className="w-full">Head Nurse</Button></Link>
-                <Link to="/admin-login"><Button variant="secondary" size="sm" className="w-full">Admin</Button></Link>
+                <Link to="/login"><Button variant="pink" size="sm" className="w-full">Login</Button></Link>
               </div>
             </nav>
           </div>
@@ -95,7 +91,7 @@ const WelcomePage = () => {
             <div className="absolute bottom-0 left-0 right-0 p-8 md:p-16">
               <h2 className="text-3xl font-bold text-primary-foreground md:text-5xl animate-fade-in">{slide.title}</h2>
               <p className="mt-2 text-lg text-primary-foreground/80 md:text-xl">{slide.subtitle}</p>
-              <Link to="/nurse-login">
+              <Link to="/login">
                 <Button variant="pink" size="lg" className="mt-6">
                   Staff Login <ChevronRight size={18} />
                 </Button>

@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import {
   Calendar, Users, ArrowLeftRight, ClipboardCheck, UserPlus, LogOut,
-  Menu, X, Check, XCircle, Search, Star, Trash2, Loader2, Wand2
+  Menu, X, Check, XCircle, Search, Star, Trash2, Loader2, Wand2, User, Edit3
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 
@@ -27,10 +27,20 @@ function getISOWeek(date: Date): number {
 const HeadNurseDashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("schedule");
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const { signOut, user } = useAuth();
   const navigate = useNavigate();
 
   const [hnProfile, setHnProfile] = useState<{ name: string; department_name: string | null } | null>(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => setProfileMenuOpen(false);
+    if (profileMenuOpen) {
+      document.addEventListener("click", handleClickOutside);
+      return () => document.removeEventListener("click", handleClickOutside);
+    }
+  }, [profileMenuOpen]);
 
   useEffect(() => {
     if (!user) return;
@@ -96,7 +106,7 @@ const HeadNurseDashboard = () => {
       </aside>
 
       <main className="flex-1">
-        <header className="flex items-center justify-between border-b bg-card px-4 py-3 md:px-6">
+        <header className="flex items-center justify-between border-b bg-card px-4 py-3 md:px-6 relative">
           <button onClick={() => setSidebarOpen(true)} className="md:hidden"><Menu size={22} /></button>
           <div>
             <h1 className="text-lg font-bold text-foreground">Head Nurse <span className="text-primary">Dashboard</span></h1>
@@ -104,10 +114,70 @@ const HeadNurseDashboard = () => {
               <p className="text-xs text-muted-foreground">{hnProfile.department_name}</p>
             )}
           </div>
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">{initials}</div>
+
+          {/* Profile Menu */}
+          <div className="relative" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary hover:bg-primary/20 transition-colors"
+            >
+              {initials}
+            </button>
+
+            {profileMenuOpen && (
+              <div className="absolute right-0 mt-2 w-56 rounded-lg border border-border bg-card shadow-lg z-50">
+                {/* Profile Info */}
+                <div className="border-b px-4 py-3">
+                  <p className="text-sm font-semibold text-foreground">{hnProfile?.name || "Head Nurse"}</p>
+                  <p className="text-xs text-muted-foreground">{hnProfile?.department_name || "No Department"}</p>
+                </div>
+
+                {/* Menu Items */}
+                <div className="py-1">
+                  <button
+                    onClick={() => {
+                      navigate("/head-nurse-profile");
+                      setProfileMenuOpen(false);
+                    }}
+                    className="flex w-full items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-accent transition-colors"
+                  >
+                    <User size={16} />
+                    <span>View Profile</span>
+                  </button>
+
+                  <div className="border-t my-1"></div>
+
+                  <button
+                    onClick={() => {
+                      handleSignOut();
+                      setProfileMenuOpen(false);
+                    }}
+                    className="flex w-full items-center gap-3 px-4 py-2 text-sm text-destructive hover:bg-accent transition-colors"
+                  >
+                    <LogOut size={16} />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </header>
 
         <div className="p-4 md:p-6">
+          {/* Actions */}
+          {activeTab === "manage" && (
+            <div className="mb-4 flex gap-2">
+              <Button
+                onClick={() => navigate("/assign-nurse-department")}
+                variant="outline"
+                className="gap-2"
+              >
+                <UserPlus size={16} />
+                Assign Department
+              </Button>
+            </div>
+          )}
+
           {activeTab === "schedule" && <HNScheduleView />}
           {activeTab === "swaps" && <HNSwapView />}
           {activeTab === "performance" && <HNPerformanceView />}
@@ -135,22 +205,42 @@ const SHIFT_LABELS: Record<string, string> = {
 };
 
 const HNScheduleView = () => {
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [scheduleData, setScheduleData] = useState<ScheduleRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [departmentId, setDepartmentId] = useState<string | null>(null);
 
   const now = new Date();
   const [selectedWeek, setSelectedWeek] = useState(getISOWeek(now));
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
 
+  // Fetch head nurse's department
+  useEffect(() => {
+    if (!user) return;
+    const fetchDepartment = async () => {
+      const { data } = await supabase
+        .from("head_nurses")
+        .select("department_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (data?.department_id) {
+        setDepartmentId(data.department_id);
+      }
+    };
+    fetchDepartment();
+  }, [user]);
+
   const fetchSchedule = useCallback(async () => {
+    if (!departmentId) return;
     setLoading(true);
     const { data, error } = await supabase
       .from("schedules")
       .select("id, duty_date, shift_type, nurse:nurses(id, name, division_id), department:departments(id, name)")
       .eq("week_number", selectedWeek)
       .eq("year", selectedYear)
+      .eq("department_id", departmentId)
       .order("duty_date")
       .order("shift_type");
 
@@ -160,7 +250,7 @@ const HNScheduleView = () => {
       setScheduleData((data as unknown as ScheduleRow[]) || []);
     }
     setLoading(false);
-  }, [selectedWeek, selectedYear]);
+  }, [selectedWeek, selectedYear, departmentId]);
 
   useEffect(() => {
     fetchSchedule();

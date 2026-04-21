@@ -30,13 +30,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [role, setRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchRole = async (userId: string) => {
-    const { data } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .maybeSingle();
-    return (data?.role as AppRole) ?? null;
+  const fetchRole = async (token: string) => {
+    try {
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
+      const res = await fetch(`${API_BASE}/auth/me`, {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      });
+      if (!res.ok) throw new Error("Failed to fetch role");
+      const data = await res.json();
+      return (data.role as AppRole) ?? null;
+    } catch (error) {
+      console.error("Error fetching role:", error);
+      return null;
+    }
   };
 
   useEffect(() => {
@@ -46,10 +55,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        if (session?.user) {
+        if (session?.access_token) {
           // IMPORTANT: Use setTimeout to avoid deadlock in onAuthStateChange
           setTimeout(async () => {
-            const userRole = await fetchRole(session.user.id);
+            const userRole = await fetchRole(session.access_token);
             setRole(userRole);
             setLoading(false);
           }, 0);
@@ -64,8 +73,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchRole(session.user.id).then((userRole) => {
+      if (session?.access_token) {
+        fetchRole(session.access_token).then((userRole) => {
           setRole(userRole);
           setLoading(false);
         });

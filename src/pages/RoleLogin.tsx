@@ -87,6 +87,19 @@ const RoleLogin = ({ role, dashboardPath, emailDomain }: RoleLoginProps) => {
               Sign In
             </Button>
           </form>
+
+          <div className="mt-6 text-center">
+            <p className="text-sm text-muted-foreground">
+              Don't have an account yet?{" "}
+              {role === "Admin" ? (
+                <Link to="/admin-bootstrap" className="font-semibold text-primary hover:underline">
+                  Create first admin
+                </Link>
+              ) : (
+                <span>Contact your Head Nurse to be added.</span>
+              )}
+            </p>
+          </div>
         </div>
       </div>
     </div>

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
 import {
   LayoutDashboard, Users, UserPlus, Calendar, ArrowLeftRight, Activity, LogOut,
-  Menu, X, Loader2, Search, Wand2, Check, XCircle, Plus, Shield
+  Menu, X, Loader2, Search, Wand2, Check, XCircle, Plus, Shield, User, Edit3
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import logo from "@/assets/logo.png";
@@ -43,10 +43,20 @@ function formatTimeAgo(ts: string) {
 const AdminDashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const { signOut } = useAuth();
   const navigate = useNavigate();
 
   const handleSignOut = async () => { await signOut(); navigate("/"); };
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => setProfileMenuOpen(false);
+    if (profileMenuOpen) {
+      document.addEventListener("click", handleClickOutside);
+      return () => document.removeEventListener("click", handleClickOutside);
+    }
+  }, [profileMenuOpen]);
 
   const tabs = [
     { key: "overview" as const, icon: LayoutDashboard, label: "Overview" },
@@ -85,10 +95,56 @@ const AdminDashboard = () => {
       </aside>
 
       <main className="flex-1">
-        <header className="flex items-center justify-between border-b bg-card px-4 py-3 md:px-6">
+        <header className="flex items-center justify-between border-b bg-card px-4 py-3 md:px-6 relative">
           <button onClick={() => setSidebarOpen(true)} className="md:hidden"><Menu size={22} /></button>
           <h1 className="text-lg font-bold text-foreground">Admin <span className="text-primary">Dashboard</span></h1>
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">AD</div>
+
+          {/* Profile Menu */}
+          <div className="relative" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary hover:bg-primary/20 transition-colors"
+            >
+              AD
+            </button>
+
+            {profileMenuOpen && (
+              <div className="absolute right-0 mt-2 w-56 rounded-lg border border-border bg-card shadow-lg z-50">
+                {/* Profile Info */}
+                <div className="border-b px-4 py-3">
+                  <p className="text-sm font-semibold text-foreground">Administrator</p>
+                  <p className="text-xs text-muted-foreground">Super Admin</p>
+                </div>
+
+                {/* Menu Items */}
+                <div className="py-1">
+                  <button
+                    onClick={() => {
+                      navigate("/admin-profile");
+                      setProfileMenuOpen(false);
+                    }}
+                    className="flex w-full items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-accent transition-colors"
+                  >
+                    <User size={16} />
+                    <span>View Profile</span>
+                  </button>
+
+                  <div className="border-t my-1"></div>
+
+                  <button
+                    onClick={() => {
+                      handleSignOut();
+                      setProfileMenuOpen(false);
+                    }}
+                    className="flex w-full items-center gap-3 px-4 py-2 text-sm text-destructive hover:bg-accent transition-colors"
+                  >
+                    <LogOut size={16} />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </header>
 
         <div className="p-4 md:p-6">
@@ -221,6 +277,7 @@ const AdminHeadNurses = () => {
   const [showForm, setShowForm] = useState(false);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ name: "", username: "", password: "", confirmPassword: "", department_id: "" });
+  const navigate = useNavigate();
 
   const fetchData = async () => {
     setLoading(true);
@@ -286,9 +343,14 @@ const AdminHeadNurses = () => {
     <div className="animate-fade-in space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-bold text-foreground">Head Nurses ({headNurses.length})</h2>
-        <Button variant="hero" size="sm" onClick={() => setShowForm(!showForm)}>
-          <Plus size={16} className="mr-1" /> Add Head Nurse
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="hero" size="sm" onClick={() => setShowForm(!showForm)}>
+            <Plus size={16} className="mr-1" /> Add Head Nurse
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => navigate("/assign-headnurse-department")}>
+            <Wand2 size={16} className="mr-1" /> Assign Department
+          </Button>
+        </div>
       </div>
 
       {showForm && (

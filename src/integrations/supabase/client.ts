@@ -167,11 +167,15 @@ class QueryBuilder {
 
   update(payload: any) {
     const run = async () => {
-      const res = await apiRequest("/db/query", {
-        method: "POST",
-        body: JSON.stringify({ table: this.table, action: "update", payload, filters: this.filters }),
-      });
-      return { data: res.data || [], error: null };
+      try {
+        const res = await apiRequest("/db/query", {
+          method: "POST",
+          body: JSON.stringify({ table: this.table, action: "update", payload, filters: this.filters }),
+        });
+        return { data: res.data || [], error: null };
+      } catch (error: any) {
+        return { data: null, error };
+      }
     };
     
     const selectOps = {

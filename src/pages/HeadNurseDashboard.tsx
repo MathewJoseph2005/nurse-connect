@@ -198,6 +198,14 @@ interface ScheduleRow {
   department: { id: string; name: string } | null;
 }
 
+// Acuity colour map
+const ACUITY_COLORS: Record<string, string> = {
+  "Acuity 1": "bg-green-100 text-green-700 border-green-200",
+  "Acuity 2": "bg-blue-100 text-blue-700 border-blue-200",
+  "Acuity 3": "bg-amber-100 text-amber-700 border-amber-200",
+  "Acuity 4": "bg-rose-100 text-rose-700 border-rose-200",
+};
+
 const SHIFT_LABELS: Record<string, string> = {
   morning: "Morning (6AM-2PM)",
   evening: "Evening (2PM-10PM)",
@@ -457,6 +465,7 @@ const HNSwapView = () => {
   return (
     <div className="space-y-4 animate-fade-in">
       <h2 className="text-lg font-bold text-foreground">Pending Swap Requests</h2>
+      <p className="text-xs text-muted-foreground -mt-2">Swaps are only permitted between nurses of the same Acuity level.</p>
       {swaps.length === 0 ? (
         <div className="rounded-xl bg-card p-12 text-center shadow-card">
           <ArrowLeftRight className="mx-auto h-10 w-10 text-muted-foreground/30" />
@@ -562,7 +571,10 @@ const HNPerformanceView = () => {
                     <div>
                       <p className="text-sm font-bold text-foreground">{n.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {n.divisions?.name || "No Division"} • {n.departments?.name || "Unassigned"}
+                        {n.divisions?.name
+                          ? <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${ACUITY_COLORS[n.divisions.name] || "bg-muted text-muted-foreground"}`}>{n.divisions.name}</span>
+                          : "No Acuity"}
+                        {" "}{n.departments?.name || "Unassigned"}
                       </p>
                     </div>
                   </div>
@@ -606,11 +618,12 @@ const HNPerformanceView = () => {
 const HNManageView = () => {
   const [showAdd, setShowAdd] = useState(false);
   const [nurses, setNurses] = useState<any[]>([]);
-  const [divisions, setDivisions] = useState<any[]>([]);
+  const [acuityLevels, setAcuityLevels] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
+  const [assigningAcuity, setAssigningAcuity] = useState<Record<string, boolean>>({});
 
   const [newName, setNewName] = useState("");
   const [newPhone, setNewPhone] = useState("");
@@ -623,12 +636,12 @@ const HNManageView = () => {
 
   const fetchData = useCallback(async () => {
     const [nursesRes, divsRes, deptsRes] = await Promise.all([
-      supabase.from("nurses").select("id, name, phone, age, gender, experience_years, exam_score_percentage, division_id, current_department_id, is_active, divisions:divisions(name), departments:departments(name)").eq("is_active", true),
-      supabase.from("divisions").select("id, name"),
+      supabase.from("nurses").select("id, name, phone, age, gender, experience_years, exam_score_percentage, division_id, current_department_id, is_active, divisions:divisions(id, name, acuity_level), departments:departments(name)").eq("is_active", true),
+      supabase.from("divisions").select("id, name, acuity_level").order("acuity_level"),
       supabase.from("departments").select("id, name"),
     ]);
     setNurses(nursesRes.data || []);
-    setDivisions(divsRes.data || []);
+    setAcuityLevels(divsRes.data || []);
     setDepartments(deptsRes.data || []);
     setLoading(false);
   }, []);
@@ -661,6 +674,24 @@ const HNManageView = () => {
       fetchData();
     }
     setSaving(false);
+  };
+
+  const handleAssignAcuity = async (nurseId: string, divisionId: string) => {
+    setAssigningAcuity((prev) => ({ ...prev, [nurseId]: true }));
+    const { error } = await supabase.from("nurses").update({ division_id: divisionId || null }).eq("id", nurseId);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Acuity Assigned", description: "Nurse acuity level updated." });
+      setNurses((prev) =>
+        prev.map((n) => {
+          if (n.id !== nurseId) return n;
+          const found = acuityLevels.find((a) => a.id === divisionId);
+          return { ...n, division_id: divisionId, divisions: found ? { id: found.id, name: found.name, acuity_level: found.acuity_level } : null };
+        })
+      );
+    }
+    setAssigningAcuity((prev) => ({ ...prev, [nurseId]: false }));
   };
 
   const handleRemove = async (nurse: any) => {
@@ -734,10 +765,10 @@ const HNManageView = () => {
               </select>
             </div>
             <div className="space-y-2">
-              <Label>Division</Label>
+              <Label>Acuity Level</Label>
               <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={newDivisionId} onChange={(e) => setNewDivisionId(e.target.value)}>
-                <option value="">Select division</option>
-                {divisions.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                <option value="">Select acuity level</option>
+                {acuityLevels.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </div>
             <div className="space-y-2">
@@ -768,7 +799,7 @@ const HNManageView = () => {
             <thead>
               <tr className="border-b bg-muted/50">
                 <th className="px-4 py-3 text-left font-semibold text-foreground">Name</th>
-                <th className="px-4 py-3 text-left font-semibold text-foreground">Division</th>
+                <th className="px-4 py-3 text-left font-semibold text-foreground">Acuity Level</th>
                 <th className="px-4 py-3 text-left font-semibold text-foreground">Department</th>
                 <th className="px-4 py-3 text-left font-semibold text-foreground">Phone</th>
                 <th className="px-4 py-3 text-left font-semibold text-foreground">Exp</th>
@@ -779,7 +810,21 @@ const HNManageView = () => {
               {filtered.map((n) => (
                 <tr key={n.id} className="hover:bg-muted/30">
                   <td className="px-4 py-3 font-medium text-foreground">{n.name}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{n.divisions?.name || "—"}</td>
+                  <td className="px-4 py-3">
+                    <select
+                      value={n.division_id || ""}
+                      onChange={(e) => handleAssignAcuity(n.id, e.target.value)}
+                      disabled={assigningAcuity[n.id]}
+                      className={`h-8 rounded-md border border-input bg-background px-2 text-xs font-medium ${
+                        n.divisions?.name ? (ACUITY_COLORS[n.divisions.name] || "") : "text-muted-foreground"
+                      }`}
+                    >
+                      <option value="">No Acuity</option>
+                      {acuityLevels.map((a) => (
+                        <option key={a.id} value={a.id}>{a.name}</option>
+                      ))}
+                    </select>
+                  </td>
                   <td className="px-4 py-3 text-muted-foreground">{n.departments?.name || "—"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{n.phone}</td>
                   <td className="px-4 py-3 text-muted-foreground">{n.experience_years || 0} yrs</td>

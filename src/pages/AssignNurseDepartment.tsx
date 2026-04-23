@@ -99,13 +99,16 @@ const AssignNurseDepartment = () => {
       const nurseIds = Array.from(selectedNurses);
       
       for (const nurseId of nurseIds) {
-        const { error } = await supabase
+        const result = await supabase
           .from("nurses")
           .update({ current_department_id: selectedDepartmentId })
           .eq("id", nurseId)
           .select();
 
-        if (error) throw error;
+        console.log("Update result:", result);
+        if (result.error) {
+          throw new Error(result.error.message || JSON.stringify(result.error));
+        }
       }
 
       toast({

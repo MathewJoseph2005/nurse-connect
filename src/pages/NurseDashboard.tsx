@@ -213,7 +213,10 @@ const NurseDashboard = () => {
           <div>
             <h1 className="text-lg font-bold text-foreground">Welcome, <span className="text-primary">{firstName}</span></h1>
             <p className="text-xs text-muted-foreground">
-              {nurseProfile?.divisions?.name || "No Division"} • {nurseProfile?.departments?.name || "Unassigned"}
+              {nurseProfile?.divisions?.name
+                ? <span className="font-semibold">{nurseProfile.divisions.name}</span>
+                : "No Acuity"}
+              {" • "}{nurseProfile?.departments?.name || "Unassigned"}
             </p>
           </div>
 
@@ -491,13 +494,20 @@ const SwapView = ({ nurseId, divisionId }: { nurseId: string; divisionId: string
   const handleSwapRequest = async (targetSchedule: any) => {
     setRequesting(targetSchedule.id);
     try {
-      const { error } = await supabase.from("shift_swap_requests").insert({
-        requester_nurse_id: nurseId,
-        requester_schedule_id: selectedSchedule!,
-        target_nurse_id: targetSchedule.nurse_id,
-        target_schedule_id: targetSchedule.id,
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
+      const res = await fetch(`${apiBase}/functions/swaps/nurse-request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          requester_schedule_id: selectedSchedule!,
+          target_schedule_id: targetSchedule.id,
+          target_nurse_id: targetSchedule.nurse_id,
+        }),
       });
-      if (error) throw error;
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Failed");
       toast({ title: "Swap Requested", description: `Request sent to ${targetSchedule.nurse?.name}` });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -516,7 +526,7 @@ const SwapView = ({ nurseId, divisionId }: { nurseId: string; divisionId: string
     <div className="space-y-6 animate-fade-in">
       <div className="rounded-xl bg-card p-6 shadow-card">
         <h2 className="text-lg font-bold text-foreground">Request Shift Swap</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Select a shift you'd like to swap and choose from available nurses in your division.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Select a shift you'd like to swap. Only nurses with the same <strong>Acuity level</strong> as you will be shown.</p>
 
         {mySchedules.length === 0 ? (
           <p className="mt-4 text-sm text-muted-foreground">No upcoming shifts to swap.</p>
@@ -558,7 +568,7 @@ const SwapView = ({ nurseId, divisionId }: { nurseId: string; divisionId: string
 
             <h3 className="mt-6 text-sm font-bold text-foreground">Available Nurses for Swap</h3>
             {availableNurses.length === 0 ? (
-              <p className="mt-3 text-sm text-muted-foreground">No nurses in your division available for swap on this date.</p>
+              <p className="mt-3 text-sm text-muted-foreground">No nurses with your Acuity level available for swap on this date.</p>
             ) : (
               <div className="mt-3 space-y-3">
                 {availableNurses.map((ns) => (
@@ -769,7 +779,7 @@ const ProfileView = ({ profile }: { profile: NurseProfile }) => {
     { label: "Phone", value: profile.phone },
     { label: "Age", value: profile.age ? String(profile.age) : "—" },
     { label: "Gender", value: profile.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : "—" },
-    { label: "Division", value: profile.divisions?.name || "Not assigned" },
+    { label: "Acuity Level", value: profile.divisions?.name || "Not assigned" },
     { label: "Current Dept", value: profile.departments?.name || "Not assigned" },
     { label: "Exam Score", value: profile.exam_score_percentage ? `${profile.exam_score_percentage}%` : "—" },
     { label: "Experience", value: profile.experience_years ? `${profile.experience_years} years` : "—" },

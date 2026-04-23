@@ -10,7 +10,8 @@
     "create-test-users": "node scripts/create-test-users.mjs",
     "seed-departments": "node scripts/seed-departments.mjs",
     "setup-schedule-test": "node scripts/setup-schedule-test.mjs",
-    "reset-admin": "node scripts/reset-admin.mjs"
+    "reset-admin": "node scripts/reset-admin.mjs",
+    "seed-acuity": "node scripts/seed-acuity.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -500,142 +500,279 @@ const AdminNurses = () => {
 
 // ─── Schedules ──────────────────────────────────────────────────
 
+const SHIFT_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
+  morning: { bg: "bg-blue-50 border-blue-200", text: "text-blue-700", dot: "bg-blue-400" },
+  evening: { bg: "bg-rose-50 border-rose-200", text: "text-rose-600", dot: "bg-rose-400" },
+  night:   { bg: "bg-slate-100 border-slate-300", text: "text-slate-700", dot: "bg-slate-500" },
+};
+
+const WEEK_OPTIONS = Array.from({ length: 53 }, (_, i) => i + 1);
+const YEAR_OPTIONS = [2024, 2025, 2026, 2027, 2028];
+
 const AdminSchedules = () => {
-  const [schedules, setSchedules] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
-  const [search, setSearch] = useState("");
+  const [schedules, setSchedules]     = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [search, setSearch]           = useState("");
+  const [selectedDept, setSelectedDept] = useState("all");
+  const [selectedShift, setSelectedShift] = useState("all");
+  const [expandedDepts, setExpandedDepts] = useState<Set<string>>(new Set());
 
   const now = new Date();
-  const [selectedWeek, setSelectedWeek] = useState(getISOWeek(now));
-  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const [selectedWeek, setSelectedWeek] = useState(String(getISOWeek(now)));
+  const [selectedYear, setSelectedYear] = useState(String(now.getFullYear()));
 
-  const fetchSchedule = useCallback(async () => {
-    setLoading(true);
-    const { data } = await supabase
-      .from("schedules")
-      .select("id, duty_date, shift_type, nurse:nurses(name), department:departments(name)")
-      .eq("week_number", selectedWeek)
-      .eq("year", selectedYear)
-      .order("duty_date")
-      .order("shift_type");
-    setSchedules((data as any[]) || []);
-    setLoading(false);
+  useEffect(() => {
+    supabase.from("departments").select("id, name").order("name").then(({ data }) => {
+      setDepartments(data || []);
+    });
+  }, []);
+
+  useEffect(() => {
+    const fetchSchedule = async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from("schedules")
+        .select("id, duty_date, shift_type, nurse:nurses(name), department:departments(id, name)")
+        .eq("week_number", Number(selectedWeek))
+        .eq("year", Number(selectedYear))
+        .order("duty_date")
+        .order("shift_type");
+      const rows = (data as any[]) || [];
+      setSchedules(rows);
+      // Auto-expand all departments on load
+      const deptNames = new Set(rows.map((r) => r.department?.name).filter(Boolean));
+      setExpandedDepts(deptNames as Set<string>);
+      setLoading(false);
+    };
+    fetchSchedule();
   }, [selectedWeek, selectedYear]);
 
-  useEffect(() => { fetchSchedule(); }, [fetchSchedule]);
-
-  const handleGenerate = async () => {
-    setGenerating(true);
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
-      const requestGenerate = async (forceAssignRemaining = false) => {
-        const response = await fetch(`${apiBase}/functions/generate-schedule`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({
-            week_number: selectedWeek,
-            year: selectedYear,
-            force_assign_remaining: forceAssignRemaining,
-          }),
-        });
-        const payload = await response.json();
-        return { response, payload };
-      };
-
-      let { response: res, payload: result } = await requestGenerate(false);
-
-      if (!res.ok && result?.code === "INSUFFICIENT_NURSES" && result?.can_force_generate) {
-        const confirmFallback = window.confirm(
-          `${result.error}\n\n${result.prompt || "Would you like to continue with available nurses?"}`
-        );
-
-        if (!confirmFallback) {
-          toast({
-            title: "Not enough nurses to auto-generate",
-            description: "Add more nurses or use one-click fallback generation.",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        const fallbackResult = await requestGenerate(true);
-        res = fallbackResult.response;
-        result = fallbackResult.payload;
-      }
-
-      if (!res.ok) throw new Error(result?.error || "Unable to generate schedule");
-
-      toast({ title: "Schedule Generated", description: `${result.stats.total_entries} entries for ${result.stats.nurses_scheduled} nurses.` });
-      await fetchSchedule();
-    } catch (err: any) {
-      toast({ title: "Cannot Auto-Generate", description: err.message, variant: "destructive" });
-    } finally {
-      setGenerating(false);
-    }
+  const toggleDept = (name: string) => {
+    setExpandedDepts((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
   };
 
+  // Filter schedules
   const filtered = schedules.filter((s) => {
     const q = search.toLowerCase();
-    return (s.nurse?.name || "").toLowerCase().includes(q) || (s.department?.name || "").toLowerCase().includes(q);
+    const matchesSearch = (s.nurse?.name || "").toLowerCase().includes(q) || (s.department?.name || "").toLowerCase().includes(q);
+    const matchesDept  = selectedDept === "all"  || s.department?.name === selectedDept;
+    const matchesShift = selectedShift === "all" || s.shift_type === selectedShift;
+    return matchesSearch && matchesDept && matchesShift;
   });
 
+  // Group by department → date → shift
+  const grouped = filtered.reduce((acc: Record<string, any[]>, s) => {
+    const key = s.department?.name || "Unknown";
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(s);
+    return acc;
+  }, {});
+
+  const deptNames = Object.keys(grouped).sort();
+  const totalNurses = new Set(filtered.map((s) => s.nurse?.name)).size;
+
   return (
-    <div className="space-y-4 animate-fade-in">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-bold text-foreground">Schedules</h2>
-        <div className="flex flex-wrap items-center gap-2">
-          <Input type="number" min={1} max={53} value={selectedWeek} onChange={(e) => setSelectedWeek(Number(e.target.value))} className="w-20 h-9" />
-          <Input type="number" min={2024} max={2030} value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} className="w-24 h-9" />
+    <div className="space-y-5 animate-fade-in">
+
+      {/* ── Header + Filter Bar ── */}
+      <div className="rounded-xl bg-card shadow-card p-4 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-lg font-bold text-foreground">Schedules</h2>
+            {!loading && (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Week {selectedWeek} · {selectedYear} · {filtered.length} shifts · {totalNurses} nurses
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Filter controls */}
+        <div className="flex flex-wrap gap-2">
+          {/* Week */}
+          <Select value={selectedWeek} onValueChange={setSelectedWeek}>
+            <SelectTrigger className="h-9 w-28">
+              <SelectValue placeholder="Week" />
+            </SelectTrigger>
+            <SelectContent className="max-h-60">
+              {WEEK_OPTIONS.map((w) => (
+                <SelectItem key={w} value={String(w)}>Week {w}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Year */}
+          <Select value={selectedYear} onValueChange={setSelectedYear}>
+            <SelectTrigger className="h-9 w-24">
+              <SelectValue placeholder="Year" />
+            </SelectTrigger>
+            <SelectContent>
+              {YEAR_OPTIONS.map((y) => (
+                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Department */}
+          <Select value={selectedDept} onValueChange={setSelectedDept}>
+            <SelectTrigger className="h-9 w-52">
+              <SelectValue placeholder="All Departments" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Departments</SelectItem>
+              {departments.map((d) => (
+                <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Shift */}
+          <Select value={selectedShift} onValueChange={setSelectedShift}>
+            <SelectTrigger className="h-9 w-40">
+              <SelectValue placeholder="All Shifts" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Shifts</SelectItem>
+              <SelectItem value="morning">Morning (6AM–2PM)</SelectItem>
+              <SelectItem value="evening">Evening (2PM–10PM)</SelectItem>
+              <SelectItem value="night">Night (10PM–6AM)</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Search..." className="pl-10 w-48 h-9" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input
+              placeholder="Search nurse…"
+              className="pl-9 h-9 w-44"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
           </div>
-          <Button variant="pink" size="sm" onClick={handleGenerate} disabled={generating}>
-            {generating ? <Loader2 size={16} className="mr-1 animate-spin" /> : <Wand2 size={16} className="mr-1" />}
-            {generating ? "Generating..." : "Auto-Generate"}
-          </Button>
         </div>
       </div>
 
+      {/* ── Content ── */}
       {loading ? (
-        <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-      ) : filtered.length === 0 ? (
-        <div className="rounded-xl bg-card p-12 text-center shadow-card">
+        <div className="flex justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : deptNames.length === 0 ? (
+        <div className="rounded-xl bg-card p-14 text-center shadow-card">
           <Calendar className="mx-auto h-12 w-12 text-muted-foreground/30" />
-          <p className="mt-4 text-sm text-muted-foreground">No schedule for Week {selectedWeek}, {selectedYear}.</p>
+          <p className="mt-4 text-sm font-medium text-muted-foreground">No schedule found</p>
+          <p className="text-xs text-muted-foreground">Try a different week, year, or filter.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl bg-card shadow-card">
-          <table className="w-full text-sm">
-            <thead><tr className="border-b bg-muted/50">
-              <th className="px-4 py-3 text-left font-semibold text-foreground">Nurse</th>
-              <th className="px-4 py-3 text-left font-semibold text-foreground">Department</th>
-              <th className="px-4 py-3 text-left font-semibold text-foreground">Shift</th>
-              <th className="px-4 py-3 text-left font-semibold text-foreground">Date</th>
-            </tr></thead>
-            <tbody className="divide-y">
-              {filtered.map((s) => (
-                <tr key={s.id} className="hover:bg-muted/30">
-                  <td className="px-4 py-3 font-medium text-foreground">{s.nurse?.name || "Unknown"}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{s.department?.name || "Unknown"}</td>
-                  <td className="px-4 py-3">
-                    <Badge className={s.shift_type === "morning" ? "bg-primary/10 text-primary border-0" : s.shift_type === "evening" ? "bg-accent/20 text-accent border-0" : "bg-muted text-foreground border-0"}>
-                      {SHIFT_LABELS[s.shift_type] || s.shift_type}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {new Date(s.duty_date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="border-t px-4 py-3 text-xs text-muted-foreground">
-            {filtered.length} entries • {new Set(filtered.map((s: any) => s.nurse?.name)).size} nurses
-          </div>
+        <div className="space-y-4">
+          {deptNames.map((deptName) => {
+            const deptRows = grouped[deptName];
+            const isOpen   = expandedDepts.has(deptName);
+
+            const byDate = deptRows.reduce((acc: Record<string, any[]>, s) => {
+              const date = s.duty_date;
+              if (!acc[date]) acc[date] = [];
+              acc[date].push(s);
+              return acc;
+            }, {});
+            const sortedDates = Object.keys(byDate).sort();
+
+            const deptNurseCount  = new Set(deptRows.map((r) => r.nurse?.name)).size;
+            const deptShiftCounts = deptRows.reduce((acc: Record<string, number>, r) => {
+              acc[r.shift_type] = (acc[r.shift_type] || 0) + 1;
+              return acc;
+            }, {} as Record<string, number>);
+
+            return (
+              <div key={deptName} className="rounded-xl bg-card shadow-card overflow-hidden border border-border/60">
+                {/* Department header */}
+                <button
+                  onClick={() => toggleDept(deptName)}
+                  className="w-full flex items-center justify-between px-5 py-4 hover:bg-muted/40 transition-colors text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                      <Calendar size={16} className="text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-foreground">{deptName}</p>
+                      <p className="text-xs text-muted-foreground">{deptRows.length} shifts · {deptNurseCount} nurses</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {Object.entries(deptShiftCounts).map(([shift, count]) => {
+                      const c = SHIFT_COLORS[shift] || SHIFT_COLORS.night;
+                      return (
+                        <span
+                          key={shift}
+                          className={`hidden sm:inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${c.bg} ${c.text}`}
+                        >
+                          <span className={`h-1.5 w-1.5 rounded-full ${c.dot}`} />
+                          {shift.charAt(0).toUpperCase() + shift.slice(1)} ×{count as number}
+                        </span>
+                      );
+                    })}
+                    <span className={`text-muted-foreground transition-transform duration-200 inline-block ${isOpen ? "rotate-180" : ""}`}>
+                      ▾
+                    </span>
+                  </div>
+                </button>
+
+                {/* Expanded rows */}
+                {isOpen && (
+                  <div className="border-t border-border/60">
+                    {sortedDates.map((date) => {
+                      const dayRows  = byDate[date];
+                      const dayLabel = new Date(date + "T00:00:00").toLocaleDateString("en-US", {
+                        weekday: "long", month: "short", day: "numeric",
+                      });
+                      const shiftOrder: Record<string, number> = { morning: 0, evening: 1, night: 2 };
+                      const sortedRows = [...dayRows].sort(
+                        (a, b) => (shiftOrder[a.shift_type] ?? 9) - (shiftOrder[b.shift_type] ?? 9)
+                      );
+
+                      return (
+                        <div key={date}>
+                          <div className="flex items-center gap-2 bg-muted/30 px-5 py-2 border-b border-border/40">
+                            <span className="text-xs font-semibold text-foreground">{dayLabel}</span>
+                            <span className="text-xs text-muted-foreground">· {dayRows.length} {dayRows.length === 1 ? "shift" : "shifts"}</span>
+                          </div>
+                          <div className="divide-y divide-border/30">
+                            {sortedRows.map((s) => {
+                              const c = SHIFT_COLORS[s.shift_type] || SHIFT_COLORS.night;
+                              return (
+                                <div
+                                  key={s.id}
+                                  className="flex items-center justify-between px-5 py-3 hover:bg-muted/20 transition-colors"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className={`h-2 w-2 rounded-full flex-shrink-0 ${c.dot}`} />
+                                    <span className="text-sm font-medium text-foreground">
+                                      {s.nurse?.name || "Unknown"}
+                                    </span>
+                                  </div>
+                                  <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${c.bg} ${c.text}`}>
+                                    {SHIFT_LABELS[s.shift_type] || s.shift_type}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

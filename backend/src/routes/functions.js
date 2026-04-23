@@ -346,6 +346,17 @@ router.post("/swaps/initiate", requireAuth, requireRole("head_nurse"), async (re
       return res.status(400).json({ error: "A swap request already exists for these schedules" });
     }
 
+    // Verify both nurses have the same Acuity level (division_id)
+    const requesterNurse = await Nurse.findById(requesterSchedule.nurse_id).lean();
+    const targetNurseCheck = await Nurse.findById(targetSchedule.nurse_id).lean();
+    if (
+      requesterNurse && targetNurseCheck &&
+      requesterNurse.division_id && targetNurseCheck.division_id &&
+      !requesterNurse.division_id.equals(targetNurseCheck.division_id)
+    ) {
+      return res.status(400).json({ error: "Shift swaps can only occur between nurses with the same Acuity level" });
+    }
+
     // Get the target nurse to send them the notification
     const targetNurse = await Nurse.findById(targetSchedule.nurse_id).lean();
     if (!targetNurse || !targetNurse.user_id) {
@@ -393,6 +404,84 @@ router.post("/generate-vapid-keys", requireAuth, async (_req, res) => {
 
 router.post("/duty-reminders", requireAuth, requireRole("admin", "head_nurse"), async (_req, res) => {
   return res.json({ success: true, reminders_sent: 0 });
+});
+
+/**
+ * POST /swaps/nurse-request
+ * Nurse-initiated shift swap — validates that both nurses share the same Acuity (division_id)
+ */
+router.post("/swaps/nurse-request", requireAuth, requireRole("nurse"), async (req, res) => {
+  try {
+    const { requester_schedule_id, target_schedule_id, target_nurse_id } = req.body;
+    if (!requester_schedule_id || !target_schedule_id || !target_nurse_id) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // Find the requesting nurse
+    const requesterNurse = await Nurse.findOne({ user_id: req.authUser.id }).lean();
+    if (!requesterNurse) {
+      return res.status(403).json({ error: "Nurse profile not found" });
+    }
+
+    // Find the target nurse
+    const targetNurse = await Nurse.findById(target_nurse_id).lean();
+    if (!targetNurse) {
+      return res.status(404).json({ error: "Target nurse not found" });
+    }
+
+    // Enforce same Acuity level
+    if (
+      requesterNurse.division_id && targetNurse.division_id &&
+      !requesterNurse.division_id.equals(targetNurse.division_id)
+    ) {
+      return res.status(400).json({ error: "Shift swaps can only occur between nurses with the same Acuity level" });
+    }
+
+    // Prevent duplicate pending swap
+    const existingSwap = await ShiftSwapRequest.findOne({
+      $or: [
+        { requester_schedule_id, target_schedule_id },
+        { requester_schedule_id: target_schedule_id, target_schedule_id: requester_schedule_id }
+      ],
+      status: "pending",
+    }).lean();
+    if (existingSwap) {
+      return res.status(400).json({ error: "A pending swap request already exists for these shifts" });
+    }
+
+    const swapRequest = await ShiftSwapRequest.create({
+      requester_nurse_id: requesterNurse._id,
+      target_nurse_id: targetNurse._id,
+      requester_schedule_id,
+      target_schedule_id,
+      status: "pending",
+    });
+
+    // Notify target nurse if they have a user account
+    if (targetNurse.user_id) {
+      const targetSchedule = await Schedule.findById(target_schedule_id).lean();
+      await Notification.create({
+        user_id: targetNurse.user_id,
+        title: "Shift Swap Request",
+        message: `${requesterNurse.name} has requested to swap shifts with you on ${targetSchedule?.duty_date || "your scheduled date"}.`,
+        notification_type: "swap_request",
+        is_read: false,
+        related_entity_id: swapRequest._id,
+      });
+    }
+
+    await ActivityLog.create({
+      user_id: req.authUser.id,
+      action: "swap_request_created",
+      entity_type: "shift_swap_request",
+      entity_id: swapRequest._id,
+      description: `Nurse ${requesterNurse.name} requested swap with ${targetNurse.name}`,
+    });
+
+    return res.json({ success: true, swap_id: swapRequest._id.toString() });
+  } catch (error) {
+    return res.status(400).json({ error: error.message || "Failed to create swap request" });
+  }
 });
 
 export default router;

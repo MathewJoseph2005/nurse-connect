@@ -2,8 +2,9 @@ import mongoose from "mongoose";
 
 const divisionSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true, unique: true },
-    description: { type: String, default: null },
+    name:         { type: String, required: true, unique: true },
+    description:  { type: String, default: null },
+    acuity_level: { type: Number, default: null },
   },
   { timestamps: { createdAt: "created_at", updatedAt: false } }
 );

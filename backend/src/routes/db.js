@@ -56,19 +56,41 @@ const populateMap = {
 
 function castId(v) {
   if (typeof v !== "string") return v;
-  return v;
+  // Convert string ID to MongoDB ObjectId
+  try {
+    return new mongoose.Types.ObjectId(v);
+  } catch (e) {
+    return v;
+  }
 }
 
 function buildQuery(filters = []) {
   const query = {};
   for (const f of filters) {
-    if (f.op === "eq") query[f.field] = castId(f.value);
-    if (f.op === "neq") query[f.field] = { $ne: castId(f.value) };
-    if (f.op === "gte") query[f.field] = { $gte: castId(f.value) };
-    if (f.op === "in") query[f.field] = { $in: (f.value || []).map(castId) };
-    if (f.op === "not" && f.operator === "is" && f.value === null) query[f.field] = { $ne: null };
+    // Map 'id' to '_id' for MongoDB
+    const field = f.field === "id" ? "_id" : f.field;
+    if (f.op === "eq") query[field] = castId(f.value);
+    if (f.op === "neq") query[field] = { $ne: castId(f.value) };
+    if (f.op === "gte") query[field] = { $gte: castId(f.value) };
+    if (f.op === "in") query[field] = { $in: (f.value || []).map(castId) };
+    if (f.op === "not" && f.operator === "is" && f.value === null) query[field] = { $ne: null };
   }
   return query;
+}
+
+function normalizePayload(payload) {
+  // Convert all fields ending with _id to MongoDB ObjectIds
+  const normalized = { ...payload };
+  for (const key in normalized) {
+    if ((key.endsWith("_id") || key === "id") && typeof normalized[key] === "string") {
+      try {
+        normalized[key] = new mongoose.Types.ObjectId(normalized[key]);
+      } catch (e) {
+        // If conversion fails, leave as is
+      }
+    }
+  }
+  return normalized;
 }
 
 function shapeRow(table, row) {
@@ -161,7 +183,8 @@ router.post("/query", requireAuth, async (req, res) => {
     }
 
     if (action === "update") {
-      await Model.updateMany(mongoQuery, { $set: payload });
+      const normalizedPayload = normalizePayload(payload);
+      await Model.updateMany(mongoQuery, { $set: normalizedPayload });
       
       // Fetch the updated documents to return
       let q = Model.find(mongoQuery);

@@ -100,13 +100,16 @@ const AssignHeadNurseDepartment = () => {
       const headNurseIds = Array.from(selectedHeadNurses);
       
       for (const headNurseId of headNurseIds) {
-        const { error } = await supabase
+        const result = await supabase
           .from("head_nurses")
           .update({ department_id: selectedDepartmentId })
           .eq("id", headNurseId)
           .select();
 
-        if (error) throw error;
+        console.log("Update result:", result);
+        if (result.error) {
+          throw new Error(result.error.message || JSON.stringify(result.error));
+        }
       }
 
       toast({

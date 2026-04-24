@@ -1,0 +1,17 @@
+{
+  "name": "Caritas Nurses Connect",
+  "short_name": "Nurses Connect",
+  "description": "Staff management portal for Caritas Hospital",
+  "start_url": "/nurse-login",
+  "display": "standalone",
+  "background_color": "#0A1628",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64",
+      "type": "image/x-icon"
+    }
+  ]
+}

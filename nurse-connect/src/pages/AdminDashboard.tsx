@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -12,15 +12,15 @@ import {
   Menu, X, Loader2, Search, Wand2, Check, XCircle, Plus, Shield, User, Edit3
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/logo.svg";
 
 type Tab = "overview" | "nurses" | "head_nurses" | "admins" | "schedules" | "swaps" | "logs";
 
 const SHIFT_LABELS: Record<string, string> = {
-  day:     "Day Shift (6AM – 6PM)",
-  night:   "Night Shift (6PM – 6AM)",
-  morning: "Morning (6AM – 2PM)",
-  evening: "Evening (2PM – 10PM)",
+  day:     "Day Shift (6AM â€“ 6PM)",
+  night:   "Night Shift (6PM â€“ 6AM)",
+  morning: "Morning (6AM â€“ 2PM)",
+  evening: "Evening (2PM â€“ 10PM)",
 };
 
 function getISOWeek(date: Date): number {
@@ -74,8 +74,9 @@ const AdminDashboard = () => {
       <aside className={`fixed inset-y-0 left-0 z-40 w-64 transform bg-card shadow-card transition-transform md:relative md:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex h-full flex-col">
           <div className="flex items-center gap-3 border-b p-4">
-            <img src={logo} alt="Logo" className="h-10 w-10 rounded-lg" />
-            <div><p className="text-sm font-bold text-foreground">Caritas Hospital</p><p className="text-xs text-muted-foreground">Admin Panel</p></div>
+            <Link to="/">
+              <img src={logo} alt="Logo" className="h-12 w-auto object-contain" />
+            </Link>
             <button onClick={() => setSidebarOpen(false)} className="ml-auto md:hidden"><X size={20} /></button>
           </div>
           <nav className="flex-1 space-y-1 p-3">
@@ -162,7 +163,7 @@ const AdminDashboard = () => {
   );
 };
 
-// ─── Overview ───────────────────────────────────────────────────
+// â”€â”€â”€ Overview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const AdminOverview = () => {
   const [stats, setStats] = useState({ nurses: 0, shifts: 0, pendingSwaps: 0, departments: 0 });
@@ -269,7 +270,7 @@ const AdminOverview = () => {
   );
 };
 
-// ─── Head Nurses ────────────────────────────────────────────────
+// â”€â”€â”€ Head Nurses â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const AdminHeadNurses = () => {
   const [headNurses, setHeadNurses] = useState<any[]>([]);
@@ -415,7 +416,7 @@ const AdminHeadNurses = () => {
                 <tr key={hn.id} className="hover:bg-muted/30">
                   <td className="px-4 py-3 font-medium text-foreground">{hn.name}</td>
                   <td className="px-4 py-3 text-muted-foreground">{hn.username}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{hn.departments?.name || "—"}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{hn.departments?.name || "â€”"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{new Date(hn.created_at).toLocaleDateString()}</td>
                 </tr>
               ))}
@@ -427,7 +428,7 @@ const AdminHeadNurses = () => {
   );
 };
 
-// ─── Nurses ─────────────────────────────────────────────────────
+// â”€â”€â”€ Nurses â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const AdminNurses = () => {
   const [nurses, setNurses] = useState<any[]>([]);
@@ -481,8 +482,8 @@ const AdminNurses = () => {
               {filtered.map((n) => (
                 <tr key={n.id} className="hover:bg-muted/30">
                   <td className="px-4 py-3 font-medium text-foreground">{n.name}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{n.divisions?.name || "—"}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{n.departments?.name || "—"}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{n.divisions?.name || "â€”"}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{n.departments?.name || "â€”"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{n.phone}</td>
                   <td className="px-4 py-3">
                     <Badge className={n.is_active ? "bg-primary/10 text-primary border-0" : "bg-destructive/10 text-destructive border-0"}>
@@ -499,7 +500,7 @@ const AdminNurses = () => {
   );
 };
 
-// ─── Schedules ──────────────────────────────────────────────────
+// â”€â”€â”€ Schedules â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const SHIFT_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
   day:     { bg: "bg-amber-50 border-amber-200",   text: "text-amber-700",  dot: "bg-amber-400" },
@@ -568,7 +569,7 @@ const AdminSchedules = () => {
     return matchesSearch && matchesDept && matchesShift;
   });
 
-  // Group by department → date → shift
+  // Group by department â†’ date â†’ shift
   const grouped = filtered.reduce((acc: Record<string, any[]>, s) => {
     const key = s.department?.name || "Unknown";
     if (!acc[key]) acc[key] = [];
@@ -582,14 +583,14 @@ const AdminSchedules = () => {
   return (
     <div className="space-y-5 animate-fade-in">
 
-      {/* ── Header + Filter Bar ── */}
+      {/* â”€â”€ Header + Filter Bar â”€â”€ */}
       <div className="rounded-xl bg-card shadow-card p-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="text-lg font-bold text-foreground">Schedules</h2>
             {!loading && (
               <p className="text-xs text-muted-foreground mt-0.5">
-                Week {selectedWeek} · {selectedYear} · {filtered.length} shifts · {totalNurses} nurses
+                Week {selectedWeek} Â· {selectedYear} Â· {filtered.length} shifts Â· {totalNurses} nurses
               </p>
             )}
           </div>
@@ -641,8 +642,8 @@ const AdminSchedules = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Shifts</SelectItem>
-              <SelectItem value="day">Day Shift (6AM – 6PM)</SelectItem>
-              <SelectItem value="night">Night Shift (6PM – 6AM)</SelectItem>
+              <SelectItem value="day">Day Shift (6AM â€“ 6PM)</SelectItem>
+              <SelectItem value="night">Night Shift (6PM â€“ 6AM)</SelectItem>
             </SelectContent>
           </Select>
 
@@ -650,7 +651,7 @@ const AdminSchedules = () => {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search nurse…"
+              placeholder="Search nurseâ€¦"
               className="pl-9 h-9 w-44"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -659,7 +660,7 @@ const AdminSchedules = () => {
         </div>
       </div>
 
-      {/* ── Content ── */}
+      {/* â”€â”€ Content â”€â”€ */}
       {loading ? (
         <div className="flex justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -703,7 +704,7 @@ const AdminSchedules = () => {
                     </div>
                     <div>
                       <p className="text-sm font-bold text-foreground">{deptName}</p>
-                      <p className="text-xs text-muted-foreground">{deptRows.length} shifts · {deptNurseCount} nurses</p>
+                      <p className="text-xs text-muted-foreground">{deptRows.length} shifts Â· {deptNurseCount} nurses</p>
                     </div>
                   </div>
 
@@ -716,12 +717,12 @@ const AdminSchedules = () => {
                           className={`hidden sm:inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${c.bg} ${c.text}`}
                         >
                           <span className={`h-1.5 w-1.5 rounded-full ${c.dot}`} />
-                          {shift.charAt(0).toUpperCase() + shift.slice(1)} ×{count as number}
+                          {shift.charAt(0).toUpperCase() + shift.slice(1)} Ã—{count as number}
                         </span>
                       );
                     })}
                     <span className={`text-muted-foreground transition-transform duration-200 inline-block ${isOpen ? "rotate-180" : ""}`}>
-                      ▾
+                      â–¾
                     </span>
                   </div>
                 </button>
@@ -743,7 +744,7 @@ const AdminSchedules = () => {
                         <div key={date}>
                           <div className="flex items-center gap-2 bg-muted/30 px-5 py-2 border-b border-border/40">
                             <span className="text-xs font-semibold text-foreground">{dayLabel}</span>
-                            <span className="text-xs text-muted-foreground">· {dayRows.length} {dayRows.length === 1 ? "shift" : "shifts"}</span>
+                            <span className="text-xs text-muted-foreground">Â· {dayRows.length} {dayRows.length === 1 ? "shift" : "shifts"}</span>
                           </div>
                           <div className="divide-y divide-border/30">
                             {sortedRows.map((s) => {
@@ -780,7 +781,7 @@ const AdminSchedules = () => {
   );
 };
 
-// ─── Swaps ──────────────────────────────────────────────────────
+// â”€â”€â”€ Swaps â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const AdminSwaps = () => {
   const [swaps, setSwaps] = useState<any[]>([]);
@@ -839,10 +840,10 @@ const AdminSwaps = () => {
           {swaps.map((s) => (
             <div key={s.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-card p-4 shadow-card">
               <div>
-                <p className="text-sm font-medium text-foreground">{s.requester?.name || "?"} ↔ {s.target?.name || "?"}</p>
+                <p className="text-sm font-medium text-foreground">{s.requester?.name || "?"} â†” {s.target?.name || "?"}</p>
                 <p className="text-xs text-muted-foreground">
-                  {s.requester_schedule?.shift_type} — {s.requester_schedule?.department?.name} ⟷ {s.target_schedule?.shift_type} — {s.target_schedule?.department?.name}
-                  {" • "}{formatTimeAgo(s.created_at)}
+                  {s.requester_schedule?.shift_type} â€” {s.requester_schedule?.department?.name} âŸ· {s.target_schedule?.shift_type} â€” {s.target_schedule?.department?.name}
+                  {" â€¢ "}{formatTimeAgo(s.created_at)}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -871,7 +872,7 @@ const AdminSwaps = () => {
   );
 };
 
-// ─── Logs ───────────────────────────────────────────────────────
+// â”€â”€â”€ Logs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const AdminLogs = () => {
   const [logs, setLogs] = useState<any[]>([]);
@@ -919,7 +920,7 @@ const AdminLogs = () => {
   );
 };
 
-// ─── Admins ─────────────────────────────────────────────────────
+// â”€â”€â”€ Admins â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const AdminAdmins = () => {
   const [admins, setAdmins] = useState<any[]>([]);

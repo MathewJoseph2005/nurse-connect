@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -11,14 +11,14 @@ import {
   Activity, Building2, ChevronRight, Loader2, BellRing, Camera, Edit3, MoreVertical
 } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/logo.svg";
 import { subscribeToPush, isPushSupported } from "@/lib/pushNotifications";
 
 const SHIFT_LABELS: Record<string, string> = {
-  day:     "Day Shift (6AM – 6PM)",
-  night:   "Night Shift (6PM – 6AM)",
-  morning: "Morning (6AM – 2PM)",
-  evening: "Evening (2PM – 10PM)",
+  day:     "Day Shift (6AM â€“ 6PM)",
+  night:   "Night Shift (6PM â€“ 6AM)",
+  morning: "Morning (6AM â€“ 2PM)",
+  evening: "Evening (2PM â€“ 10PM)",
 };
 
 const WORKLOAD_MAP: Record<string, { label: string; width: string }> = {
@@ -171,11 +171,9 @@ const NurseDashboard = () => {
       <aside className={`fixed inset-y-0 left-0 z-40 w-64 transform bg-card shadow-card transition-transform md:relative md:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex h-full flex-col">
           <div className="flex items-center gap-3 border-b p-4">
-            <img src={logo} alt="Logo" className="h-10 w-10 rounded-lg" />
-            <div>
-              <p className="text-sm font-bold text-foreground">Caritas Hospital</p>
-              <p className="text-xs text-muted-foreground">Nurse Portal</p>
-            </div>
+            <Link to="/">
+              <img src={logo} alt="Logo" className="h-12 w-auto object-contain" />
+            </Link>
             <button onClick={() => setSidebarOpen(false)} className="ml-auto md:hidden"><X size={20} /></button>
           </div>
 
@@ -217,7 +215,7 @@ const NurseDashboard = () => {
               {nurseProfile?.divisions?.name
                 ? <span className="font-semibold">{nurseProfile.divisions.name}</span>
                 : "No Acuity"}
-              {" • "}{nurseProfile?.departments?.name || "Unassigned"}
+              {" â€¢ "}{nurseProfile?.departments?.name || "Unassigned"}
             </p>
           </div>
 
@@ -311,7 +309,7 @@ const NurseDashboard = () => {
   );
 };
 
-// ─── Schedule View ──────────────────────────────────────────────
+// â”€â”€â”€ Schedule View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const ScheduleView = ({ nurseId, deptName }: { nurseId: string; deptName: string }) => {
   const [schedules, setSchedules] = useState<any[]>([]);
@@ -424,7 +422,7 @@ const ScheduleView = ({ nurseId, deptName }: { nurseId: string; deptName: string
   );
 };
 
-// ─── Swap View ──────────────────────────────────────────────────
+// â”€â”€â”€ Swap View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const SwapView = ({
   nurseId,
@@ -527,7 +525,7 @@ const SwapView = ({
 
       // Also filter client-side by same acuity (division_id) if nurse has one
       const candidates = (data || []).filter((s: any) => {
-        if (!divisionId) return true;          // no acuity set → show all same-dept
+        if (!divisionId) return true;          // no acuity set â†’ show all same-dept
         return s.nurse?.division_id === divisionId;
       });
 
@@ -628,7 +626,7 @@ const SwapView = ({
                     }`}
                   >
                     {d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-                    {" — "}
+                    {" â€” "}
                     {SHIFT_LABELS[s.shift_type]?.split(" ")[0] || s.shift_type}
                   </button>
                 );
@@ -640,7 +638,7 @@ const SwapView = ({
                 <p className="text-xs font-medium text-muted-foreground">YOUR SHIFT</p>
                 <p className="mt-1 text-sm font-bold text-foreground">
                   {new Date(selected.duty_date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
-                  {" — "}
+                  {" â€” "}
                   {SHIFT_LABELS[selected.shift_type] || selected.shift_type}
                   {" at "}
                   {selected.department?.name || "Unknown"}
@@ -667,7 +665,7 @@ const SwapView = ({
                       <div>
                         <p className="text-sm font-bold text-foreground">{ns.nurse?.name || "Unknown"}</p>
                         <p className="text-xs text-muted-foreground">
-                          {SHIFT_LABELS[ns.shift_type]?.split(" ")[0] || ns.shift_type} • {ns.department?.name || "Unknown"}
+                          {SHIFT_LABELS[ns.shift_type]?.split(" ")[0] || ns.shift_type} â€¢ {ns.department?.name || "Unknown"}
                         </p>
                       </div>
                     </div>
@@ -765,7 +763,7 @@ const SwapView = ({
                       </p>
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {h.requester_schedule?.duty_date} • {h.requester_schedule?.shift_type} ({h.requester_schedule?.department?.name})
+                      {h.requester_schedule?.duty_date} â€¢ {h.requester_schedule?.shift_type} ({h.requester_schedule?.department?.name})
                     </p>
                   </div>
                   <Badge className={statusColor}>
@@ -781,7 +779,7 @@ const SwapView = ({
   );
 };
 
-// ─── Notifications View ─────────────────────────────────────────
+// â”€â”€â”€ Notifications View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const NotificationsView = ({ userId, onRead }: { userId: string; onRead: () => void }) => {
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -856,7 +854,7 @@ const NotificationsView = ({ userId, onRead }: { userId: string; onRead: () => v
   );
 };
 
-// ─── Profile View ───────────────────────────────────────────────
+// â”€â”€â”€ Profile View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const ProfileView = ({ profile }: { profile: NurseProfile }) => {
   const { user } = useAuth();
@@ -921,12 +919,12 @@ const ProfileView = ({ profile }: { profile: NurseProfile }) => {
 
   const fields = [
     { label: "Phone", value: profile.phone },
-    { label: "Age", value: profile.age ? String(profile.age) : "—" },
-    { label: "Gender", value: profile.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : "—" },
+    { label: "Age", value: profile.age ? String(profile.age) : "â€”" },
+    { label: "Gender", value: profile.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : "â€”" },
     { label: "Acuity Level", value: profile.divisions?.name || "Not assigned" },
     { label: "Current Dept", value: profile.departments?.name || "Not assigned" },
-    { label: "Exam Score", value: profile.exam_score_percentage ? `${profile.exam_score_percentage}%` : "—" },
-    { label: "Experience", value: profile.experience_years ? `${profile.experience_years} years` : "—" },
+    { label: "Exam Score", value: profile.exam_score_percentage ? `${profile.exam_score_percentage}%` : "â€”" },
+    { label: "Experience", value: profile.experience_years ? `${profile.experience_years} years` : "â€”" },
   ];
 
   return (
@@ -987,7 +985,7 @@ const ProfileView = ({ profile }: { profile: NurseProfile }) => {
   );
 };
 
-// ─── Helper ─────────────────────────────────────────────────────
+// â”€â”€â”€ Helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function getDateOfISOWeek(week: number, year: number): Date {
   const jan4 = new Date(year, 0, 4);

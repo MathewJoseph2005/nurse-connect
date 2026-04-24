@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -118,14 +118,14 @@ const HeadNurseProfile = () => {
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Phone</label>
-                <p className="text-base text-foreground font-medium">{profile.phone || "—"}</p>
+                <p className="text-base text-foreground font-medium">{profile.phone || "â€”"}</p>
                 <div className="border-b mt-2"></div>
               </div>
 
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Gender</label>
                 <p className="text-base text-foreground font-medium capitalize">
-                  {profile.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : "—"}
+                  {profile.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : "â€”"}
                 </p>
                 <div className="border-b mt-2"></div>
               </div>
@@ -139,7 +139,7 @@ const HeadNurseProfile = () => {
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Division</label>
                 <p className="text-base text-foreground font-medium">
-                  {profile.divisions?.name || "—"}
+                  {profile.divisions?.name || "â€”"}
                 </p>
                 <div className="border-b mt-2"></div>
               </div>
@@ -147,7 +147,7 @@ const HeadNurseProfile = () => {
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Current Dept</label>
                 <p className="text-base text-foreground font-medium">
-                  {profile.departments?.name || "—"}
+                  {profile.departments?.name || "â€”"}
                 </p>
                 <div className="border-b mt-2"></div>
               </div>
@@ -155,7 +155,7 @@ const HeadNurseProfile = () => {
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Exam Score</label>
                 <p className="text-base text-foreground font-medium">
-                  {profile.exam_score_percentage ? `${profile.exam_score_percentage}%` : "—"}
+                  {profile.exam_score_percentage ? `${profile.exam_score_percentage}%` : "â€”"}
                 </p>
                 <div className="border-b mt-2"></div>
               </div>
@@ -163,7 +163,7 @@ const HeadNurseProfile = () => {
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Experience</label>
                 <p className="text-base text-foreground font-medium">
-                  {profile.experience_years ? `${profile.experience_years} years` : "—"}
+                  {profile.experience_years ? `${profile.experience_years} years` : "â€”"}
                 </p>
                 <div className="border-b mt-2"></div>
               </div>

@@ -2,15 +2,15 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Menu, X, MapPin, Award, Users, ChevronRight, Phone, Heart, Stethoscope } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import logo from "@/assets/logo.png";
-import hospital1 from "@/assets/hospital-1.jpg";
-import hospital2 from "@/assets/hospital-2.jpg";
-import hospital3 from "@/assets/hospital-3.jpg";
+import logo from "@/assets/logo-banner.svg";
+import nurse1 from "@/assets/nurses/nurse-1.jpg";
+import nurse2 from "@/assets/nurses/nurse-2.jpg";
+import nurse3 from "@/assets/nurses/nurse-3.jpg";
 
 const slides = [
-  { image: hospital1, title: "Guided by Expertise, Defined by Compassion", subtitle: "Experience healthcare at its finest at Caritas Hospital" },
-  { image: hospital2, title: "65 Years of Healing, a Legacy of Excellence", subtitle: "A tapestry of excellence redefining healthcare since 1959" },
-  { image: hospital3, title: "Walking in Compassion, Serving with Love", subtitle: "Fostering a healing environment driven by genuine warmth" },
+  { image: nurse1, title: "Guided by Expertise, Defined by Compassion", subtitle: "Experience healthcare at its finest at Caritas Hospital" },
+  { image: nurse2, title: "65 Years of Healing, a Legacy of Excellence", subtitle: "A tapestry of excellence redefining healthcare since 1959" },
+  { image: nurse3, title: "Walking in Compassion, Serving with Love", subtitle: "Fostering a healing environment driven by genuine warmth" },
 ];
 
 const WelcomePage = () => {
@@ -29,12 +29,8 @@ const WelcomePage = () => {
       {/* Header */}
       <header className="gradient-primary sticky top-0 z-50 shadow-healthcare">
         <div className="container mx-auto flex items-center justify-between px-4 py-3">
-          <Link to="/" className="flex items-center gap-2">
-            <img src={logo} alt="Caritas Hospital" className="h-10 w-10 rounded-lg" />
-            <div>
-              <span className="text-lg font-bold text-primary-foreground leading-tight block">Caritas Hospital</span>
-              <span className="text-[10px] text-primary-foreground/70 leading-none">Nurses Connect</span>
-            </div>
+          <Link to="/" className="flex items-center">
+            <img src={logo} alt="Caritas Hospital" className="h-12 w-auto" />
           </Link>
 
           {/* Desktop Nav */}

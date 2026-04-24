@@ -15,9 +15,10 @@ import logo from "@/assets/logo.png";
 import { subscribeToPush, isPushSupported } from "@/lib/pushNotifications";
 
 const SHIFT_LABELS: Record<string, string> = {
-  morning: "Morning (6AM-2PM)",
-  evening: "Evening (2PM-10PM)",
-  night: "Night (10PM-6AM)",
+  day:     "Day Shift (6AM – 6PM)",
+  night:   "Night Shift (6PM – 6AM)",
+  morning: "Morning (6AM – 2PM)",
+  evening: "Evening (2PM – 10PM)",
 };
 
 const WORKLOAD_MAP: Record<string, { label: string; width: string }> = {
@@ -295,7 +296,13 @@ const NurseDashboard = () => {
 
         <div className="p-4 md:p-6">
           {activeTab === "schedule" && nurseProfile && <ScheduleView nurseId={nurseProfile.id} deptName={nurseProfile.departments?.name || "Unassigned"} />}
-          {activeTab === "swap" && nurseProfile && <SwapView nurseId={nurseProfile.id} divisionId={nurseProfile.division_id} />}
+          {activeTab === "swap" && nurseProfile && (
+            <SwapView
+              nurseId={nurseProfile.id}
+              divisionId={nurseProfile.division_id}
+              departmentId={nurseProfile.current_department_id}
+            />
+          )}
           {activeTab === "notifications" && user && <NotificationsView userId={user.id} onRead={() => setUnreadCount((c) => Math.max(0, c - 1))} />}
           {activeTab === "profile" && nurseProfile && <ProfileView profile={nurseProfile} />}
         </div>
@@ -419,11 +426,20 @@ const ScheduleView = ({ nurseId, deptName }: { nurseId: string; deptName: string
 
 // ─── Swap View ──────────────────────────────────────────────────
 
-const SwapView = ({ nurseId, divisionId }: { nurseId: string; divisionId: string | null }) => {
+const SwapView = ({
+  nurseId,
+  divisionId,
+  departmentId,
+}: {
+  nurseId: string;
+  divisionId: string | null;
+  departmentId: string | null;
+}) => {
   const [mySchedules, setMySchedules] = useState<any[]>([]);
   const [selectedSchedule, setSelectedSchedule] = useState<string | null>(null);
   const [availableNurses, setAvailableNurses] = useState<any[]>([]);
   const [swapHistory, setSwapHistory] = useState<any[]>([]);
+  const [incomingRequests, setIncomingRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [requesting, setRequesting] = useState<string | null>(null);
 
@@ -448,15 +464,30 @@ const SwapView = ({ nurseId, divisionId }: { nurseId: string; divisionId: string
         setSelectedSchedule(myScheds[0].id);
       }
 
-      // Swap history
-      const { data: history } = await supabase
+      // Incoming requests
+      const { data: incoming } = await supabase
         .from("shift_swap_requests")
         .select(`
           id, status, created_at,
-          target:nurses!shift_swap_requests_target_nurse_id_fkey(name),
-          requester_schedule:schedules!shift_swap_requests_requester_schedule_id_fkey(shift_type, department:departments(name))
+          requester:nurses!shift_swap_requests_requester_nurse_id_fkey(name),
+          requester_schedule:schedules!shift_swap_requests_requester_schedule_id_fkey(duty_date, shift_type, department:departments(name))
         `)
-        .eq("requester_nurse_id", nurseId)
+        .eq("target_nurse_id", nurseId)
+        .eq("status", "pending_target")
+        .order("created_at", { ascending: false });
+
+      setIncomingRequests(incoming || []);
+
+      // Swap history (both sent and received)
+      const { data: history } = await supabase
+        .from("shift_swap_requests")
+        .select(`
+          id, status, created_at, requester_nurse_id, target_nurse_id,
+          requester:nurses!shift_swap_requests_requester_nurse_id_fkey(name),
+          target:nurses!shift_swap_requests_target_nurse_id_fkey(name),
+          requester_schedule:schedules!shift_swap_requests_requester_schedule_id_fkey(duty_date, shift_type, department:departments(name))
+        `)
+        .or(`requester_nurse_id.eq.${nurseId},target_nurse_id.eq.${nurseId}`)
         .order("created_at", { ascending: false })
         .limit(10);
 
@@ -466,30 +497,40 @@ const SwapView = ({ nurseId, divisionId }: { nurseId: string; divisionId: string
     fetchData();
   }, [nurseId, now, weekNum, year]);
 
-  // When a schedule is selected, find available nurses in same division with different shifts on same date
+  // When a schedule is selected, find nurses in the SAME DEPARTMENT and SAME ACUITY
+  // who are also scheduled on the same date (different shift = swap candidate)
   useEffect(() => {
-    if (!selectedSchedule || !divisionId) return;
+    if (!selectedSchedule) return;
 
     const selected = mySchedules.find((s) => s.id === selectedSchedule);
     if (!selected) return;
 
     const fetchAvailable = async () => {
-      const { data } = await supabase
+      let query = supabase
         .from("schedules")
-        .select("id, duty_date, shift_type, nurse_id, nurse:nurses(id, name, division_id), department:departments(name)")
+        .select("id, duty_date, shift_type, nurse_id, nurse:nurses(id, name, division_id, current_department_id), department:departments(name)")
         .eq("duty_date", selected.duty_date)
-        .neq("nurse_id", nurseId)
         .eq("week_number", weekNum)
-        .eq("year", year);
+        .eq("year", year)
+        .neq("nurse_id", nurseId);
 
-      // Filter to same division
-      const sameDivision = (data || []).filter(
-        (s: any) => s.nurse?.division_id === divisionId
-      );
-      setAvailableNurses(sameDivision);
+      // Filter by same department at the database level
+      if (departmentId) {
+        query = query.eq("department_id", departmentId);
+      }
+
+      const { data } = await query;
+
+      // Also filter client-side by same acuity (division_id) if nurse has one
+      const candidates = (data || []).filter((s: any) => {
+        if (!divisionId) return true;          // no acuity set → show all same-dept
+        return s.nurse?.division_id === divisionId;
+      });
+
+      setAvailableNurses(candidates);
     };
     fetchAvailable();
-  }, [selectedSchedule, mySchedules, divisionId, nurseId, weekNum, year]);
+  }, [selectedSchedule, mySchedules, divisionId, departmentId, nurseId, weekNum, year]);
 
   const handleSwapRequest = async (targetSchedule: any) => {
     setRequesting(targetSchedule.id);
@@ -509,6 +550,41 @@ const SwapView = ({ nurseId, divisionId }: { nurseId: string; divisionId: string
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || "Failed");
       toast({ title: "Swap Requested", description: `Request sent to ${targetSchedule.nurse?.name}` });
+      // Refresh to show in history
+      setSwapHistory((prev) => [{
+        id: result.swap_id,
+        status: "pending_target",
+        requester_nurse_id: nurseId,
+        target_nurse_id: targetSchedule.nurse_id,
+        target: { name: targetSchedule.nurse?.name },
+        requester_schedule: { duty_date: selected.duty_date, shift_type: selected.shift_type, department: { name: selected.department?.name } }
+      }, ...prev].slice(0, 10));
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setRequesting(null);
+    }
+  };
+
+  const handleIncomingResponse = async (swapId: string, action: "accepted" | "rejected") => {
+    setRequesting(swapId);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
+
+      const res = await fetch(`${apiBase}/functions/swaps/nurse-respond`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ swap_id: swapId, action }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Failed to respond");
+      toast({ title: "Success", description: `Swap request ${action}` });
+      
+      // Update UI
+      setIncomingRequests((prev) => prev.filter((r) => r.id !== swapId));
+      setSwapHistory((prev) => prev.map((h) => h.id === swapId ? { ...h, status: result.status } : h));
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
@@ -526,7 +602,9 @@ const SwapView = ({ nurseId, divisionId }: { nurseId: string; divisionId: string
     <div className="space-y-6 animate-fade-in">
       <div className="rounded-xl bg-card p-6 shadow-card">
         <h2 className="text-lg font-bold text-foreground">Request Shift Swap</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Select a shift you'd like to swap. Only nurses with the same <strong>Acuity level</strong> as you will be shown.</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Select a shift you'd like to swap. Only nurses in your <strong>department</strong> with the same <strong>Acuity level</strong> are shown as eligible swap partners.
+        </p>
 
         {mySchedules.length === 0 ? (
           <p className="mt-4 text-sm text-muted-foreground">No upcoming shifts to swap.</p>
@@ -568,7 +646,12 @@ const SwapView = ({ nurseId, divisionId }: { nurseId: string; divisionId: string
 
             <h3 className="mt-6 text-sm font-bold text-foreground">Available Nurses for Swap</h3>
             {availableNurses.length === 0 ? (
-              <p className="mt-3 text-sm text-muted-foreground">No nurses with your Acuity level available for swap on this date.</p>
+              <div className="mt-3 rounded-lg border border-dashed bg-muted/30 p-6 text-center">
+                <p className="text-sm font-medium text-foreground">No eligible swap partners found</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  No nurses in your department with the same acuity level are scheduled on this date.
+                </p>
+              </div>
             ) : (
               <div className="mt-3 space-y-3">
                 {availableNurses.map((ns) => (
@@ -600,6 +683,47 @@ const SwapView = ({ nurseId, divisionId }: { nurseId: string; divisionId: string
           </>
         )}
       </div>
+      {incomingRequests.length > 0 && (
+        <div className="rounded-xl border-2 border-primary/20 bg-primary/5 p-6 shadow-card">
+          <h2 className="text-lg font-bold text-primary">Incoming Swap Requests</h2>
+          <div className="mt-4 space-y-3">
+            {incomingRequests.map((req) => (
+              <div key={req.id} className="flex items-center justify-between rounded-lg bg-background p-4 shadow-sm border">
+                <div>
+                  <p className="text-sm font-bold text-foreground">
+                    {req.requester?.name || "A nurse"} wants to swap
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Date: {req.requester_schedule?.duty_date} <br/>
+                    Their Shift: {req.requester_schedule?.shift_type} ({req.requester_schedule?.department?.name})
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive hover:bg-destructive/10 border-destructive/20"
+                    disabled={requesting === req.id}
+                    onClick={() => handleIncomingResponse(req.id, "rejected")}
+                  >
+                    Decline
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="bg-primary hover:bg-primary/90 text-white"
+                    disabled={requesting === req.id}
+                    onClick={() => handleIncomingResponse(req.id, "accepted")}
+                  >
+                    {requesting === req.id ? <Loader2 size={14} className="animate-spin mr-1" /> : null}
+                    Accept
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="rounded-xl bg-card p-6 shadow-card">
         <h2 className="text-lg font-bold text-foreground">Swap History</h2>
@@ -607,29 +731,45 @@ const SwapView = ({ nurseId, divisionId }: { nurseId: string; divisionId: string
           <p className="mt-4 text-sm text-muted-foreground">No swap requests yet.</p>
         ) : (
           <div className="mt-4 space-y-3">
-            {swapHistory.map((h) => (
-              <div key={h.id} className="flex items-center justify-between rounded-lg border p-4">
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    Swap with {h.target?.name || "Unknown"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {h.requester_schedule?.shift_type} — {h.requester_schedule?.department?.name}
-                  </p>
+            {swapHistory.map((h) => {
+              const isMine = h.requester_nurse_id === nurseId;
+              const otherPersonName = isMine ? h.target?.name : h.requester?.name;
+              let statusLabel = h.status.charAt(0).toUpperCase() + h.status.slice(1);
+              let statusColor = "bg-accent/20 text-accent border-0";
+
+              if (h.status === "approved") {
+                statusColor = "bg-primary/10 text-primary border-0";
+              } else if (h.status === "rejected") {
+                statusColor = "bg-destructive/10 text-destructive border-0";
+              } else if (h.status === "pending_target") {
+                statusLabel = "Pending Target Nurse";
+                statusColor = "bg-amber-100 text-amber-700 border-0 dark:bg-amber-900/30 dark:text-amber-400";
+              } else if (h.status === "pending_admin" || h.status === "pending") {
+                statusLabel = "Pending Head Nurse";
+                statusColor = "bg-blue-100 text-blue-700 border-0 dark:bg-blue-900/30 dark:text-blue-400";
+              }
+
+              return (
+                <div key={h.id} className="flex items-center justify-between rounded-lg border p-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-[10px] uppercase">
+                        {isMine ? "Sent" : "Received"}
+                      </Badge>
+                      <p className="text-sm font-medium text-foreground">
+                        Swap with {otherPersonName || "Unknown"}
+                      </p>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {h.requester_schedule?.duty_date} • {h.requester_schedule?.shift_type} ({h.requester_schedule?.department?.name})
+                    </p>
+                  </div>
+                  <Badge className={statusColor}>
+                    {statusLabel}
+                  </Badge>
                 </div>
-                <Badge
-                  className={
-                    h.status === "approved"
-                      ? "bg-primary/10 text-primary border-0"
-                      : h.status === "rejected"
-                      ? "bg-destructive/10 text-destructive border-0"
-                      : "bg-accent/20 text-accent border-0"
-                  }
-                >
-                  {h.status.charAt(0).toUpperCase() + h.status.slice(1)}
-                </Badge>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

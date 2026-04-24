@@ -11,7 +11,10 @@
     "seed-departments": "node scripts/seed-departments.mjs",
     "setup-schedule-test": "node scripts/setup-schedule-test.mjs",
     "reset-admin": "node scripts/reset-admin.mjs",
-    "seed-acuity": "node scripts/seed-acuity.mjs"
+    "seed-acuity": "node scripts/seed-acuity.mjs",
+    "seed-test-nurses": "node scripts/seed-test-nurses.mjs",
+    "seed-schedules": "node scripts/seed-schedules.mjs",
+    "export-credentials": "node scripts/export-credentials-pdf.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

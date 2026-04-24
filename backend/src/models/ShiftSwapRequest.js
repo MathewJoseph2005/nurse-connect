@@ -6,7 +6,7 @@ const shiftSwapRequestSchema = new mongoose.Schema(
     target_nurse_id: { type: mongoose.Schema.Types.ObjectId, ref: "Nurse", required: true },
     requester_schedule_id: { type: mongoose.Schema.Types.ObjectId, ref: "Schedule", required: true },
     target_schedule_id: { type: mongoose.Schema.Types.ObjectId, ref: "Schedule", required: true },
-    status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
+    status: { type: String, enum: ["pending_target", "pending_admin", "approved", "rejected", "pending"], default: "pending_target" },
     reviewed_by: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     review_notes: { type: String, default: null },
   },

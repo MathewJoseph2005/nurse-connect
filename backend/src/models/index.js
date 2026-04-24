@@ -13,3 +13,4 @@ export { NurseRemoval } from "./NurseRemoval.js";
 export { NurseLeave } from "./NurseLeave.js";
 export { PushSubscription } from "./PushSubscription.js";
 export { PerformanceEvaluation } from "./PerformanceEvaluation.js";
+export { ReminderLog } from "./ReminderLog.js";

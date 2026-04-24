@@ -207,9 +207,11 @@ const ACUITY_COLORS: Record<string, string> = {
 };
 
 const SHIFT_LABELS: Record<string, string> = {
-  morning: "Morning (6AM-2PM)",
-  evening: "Evening (2PM-10PM)",
-  night: "Night (10PM-6AM)",
+  day:     "Day Shift (6AM – 6PM)",
+  night:   "Night Shift (6PM – 6AM)",
+  // legacy labels for any old seeded data
+  morning: "Morning (6AM – 2PM)",
+  evening: "Evening (2PM – 10PM)",
 };
 
 const HNScheduleView = () => {
@@ -389,7 +391,11 @@ const HNScheduleView = () => {
                   <td className="px-4 py-3">
                     <Badge
                       className={
-                        s.shift_type === "morning"
+                        s.shift_type === "day"
+                          ? "bg-amber-100 text-amber-700 border-0"
+                          : s.shift_type === "night"
+                          ? "bg-indigo-100 text-indigo-700 border-0"
+                          : s.shift_type === "morning"
                           ? "bg-primary/10 text-primary border-0"
                           : s.shift_type === "evening"
                           ? "bg-accent/20 text-accent border-0"
@@ -430,7 +436,7 @@ const HNSwapView = () => {
           requester_schedule:schedules!shift_swap_requests_requester_schedule_id_fkey(duty_date, shift_type, department:departments(name)),
           target_schedule:schedules!shift_swap_requests_target_schedule_id_fkey(duty_date, shift_type, department:departments(name))
         `)
-        .eq("status", "pending")
+        .in("status", ["pending_admin", "pending"])
         .order("created_at", { ascending: false });
 
       if (!error) setSwaps(data || []);
@@ -616,41 +622,73 @@ const HNPerformanceView = () => {
 // ─── Manage Nurses View ─────────────────────────────────────────
 
 const HNManageView = () => {
+  const { user } = useAuth();
   const [showAdd, setShowAdd] = useState(false);
   const [nurses, setNurses] = useState<any[]>([]);
   const [acuityLevels, setAcuityLevels] = useState<any[]>([]);
-  const [departments, setDepartments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [assigningAcuity, setAssigningAcuity] = useState<Record<string, boolean>>({});
+
+  // The head nurse's own department (resolved once on mount)
+  const [myDeptId, setMyDeptId] = useState<string | null>(null);
+  const [myDeptName, setMyDeptName] = useState<string | null>(null);
 
   const [newName, setNewName] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [newAge, setNewAge] = useState("");
   const [newGender, setNewGender] = useState("");
   const [newDivisionId, setNewDivisionId] = useState("");
-  const [newDeptId, setNewDeptId] = useState("");
   const [newExperience, setNewExperience] = useState("");
   const [newExamScore, setNewExamScore] = useState("");
 
-  const fetchData = useCallback(async () => {
-    const [nursesRes, divsRes, deptsRes] = await Promise.all([
-      supabase.from("nurses").select("id, name, phone, age, gender, experience_years, exam_score_percentage, division_id, current_department_id, is_active, divisions:divisions(id, name, acuity_level), departments:departments(name)").eq("is_active", true),
+  // Step 1 — resolve HN's department, then step 2 — fetch scoped nurses
+  const fetchData = useCallback(async (deptId: string) => {
+    const [nursesRes, divsRes] = await Promise.all([
+      supabase
+        .from("nurses")
+        .select("id, name, phone, age, gender, experience_years, exam_score_percentage, division_id, current_department_id, is_active, divisions:divisions(id, name, acuity_level), departments:departments(name)")
+        .eq("is_active", true)
+        .eq("current_department_id", deptId),   // ← scoped to THIS department only
       supabase.from("divisions").select("id, name, acuity_level").order("acuity_level"),
-      supabase.from("departments").select("id, name"),
     ]);
     setNurses(nursesRes.data || []);
     setAcuityLevels(divsRes.data || []);
-    setDepartments(deptsRes.data || []);
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    if (!user) return;
+    const init = async () => {
+      // Resolve the head nurse's department
+      const { data: hn } = await supabase
+        .from("head_nurses")
+        .select("department_id, departments:departments(name)")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const deptId = hn?.department_id ?? null;
+      const deptName = (hn?.departments as any)?.name ?? null;
+      setMyDeptId(deptId);
+      setMyDeptName(deptName);
+
+      if (deptId) {
+        await fetchData(deptId);
+      } else {
+        setLoading(false); // no department assigned to this HN
+      }
+    };
+    init();
+  }, [user, fetchData]);
 
   const handleAddNurse = async () => {
     if (!newName || !newPhone) {
       toast({ title: "Missing fields", description: "Name and phone are required", variant: "destructive" });
+      return;
+    }
+    if (!myDeptId) {
+      toast({ title: "No department", description: "You have no department assigned yet.", variant: "destructive" });
       return;
     }
     setSaving(true);
@@ -660,7 +698,7 @@ const HNManageView = () => {
       age: newAge ? parseInt(newAge) : null,
       gender: newGender as any || null,
       division_id: newDivisionId || null,
-      current_department_id: newDeptId || null,
+      current_department_id: myDeptId,          // ← always assigned to HN's own dept
       experience_years: newExperience ? parseInt(newExperience) : 0,
       exam_score_percentage: newExamScore ? parseFloat(newExamScore) : null,
     });
@@ -668,31 +706,49 @@ const HNManageView = () => {
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Nurse Added", description: `${newName} has been added to the system.` });
-      setNewName(""); setNewPhone(""); setNewAge(""); setNewGender(""); setNewDivisionId(""); setNewDeptId(""); setNewExperience(""); setNewExamScore("");
+      toast({ title: "Nurse Added", description: `${newName} has been added to ${myDeptName || "your department"}.` });
+      setNewName(""); setNewPhone(""); setNewAge(""); setNewGender(""); setNewDivisionId(""); setNewExperience(""); setNewExamScore("");
       setShowAdd(false);
-      fetchData();
+      fetchData(myDeptId);
     }
     setSaving(false);
   };
 
   const handleAssignAcuity = async (nurseId: string, divisionId: string) => {
     setAssigningAcuity((prev) => ({ ...prev, [nurseId]: true }));
-    const { error } = await supabase.from("nurses").update({ division_id: divisionId || null }).eq("id", nurseId);
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Acuity Assigned", description: "Nurse acuity level updated." });
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
+
+      const res = await fetch(`${apiBase}/functions/nurses/${nurseId}/acuity`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ division_id: divisionId || null }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to update acuity");
+
+      // Update local state with the server's confirmed value
       setNurses((prev) =>
-        prev.map((n) => {
-          if (n.id !== nurseId) return n;
-          const found = acuityLevels.find((a) => a.id === divisionId);
-          return { ...n, division_id: divisionId, divisions: found ? { id: found.id, name: found.name, acuity_level: found.acuity_level } : null };
-        })
+        prev.map((n) =>
+          n.id !== nurseId
+            ? n
+            : { ...n, division_id: json.division_id, divisions: json.divisions }
+        )
       );
+      toast({ title: "Acuity Assigned", description: "Nurse acuity level updated." });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setAssigningAcuity((prev) => ({ ...prev, [nurseId]: false }));
     }
-    setAssigningAcuity((prev) => ({ ...prev, [nurseId]: false }));
   };
+
 
   const handleRemove = async (nurse: any) => {
     // Optimistically remove from UI so the row disappears immediately.
@@ -700,12 +756,23 @@ const HNManageView = () => {
     setNurses((prev) => prev.filter((n) => n.id !== nurse.id));
 
     const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
     const userId = sessionData.session?.user?.id;
+    const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
 
-    const { error } = await supabase.from("nurses").update({ is_active: false }).eq("id", nurse.id);
-    if (error) {
+    // Use direct fetch so update actually hits the DB (shim update() has a known silent-fail bug)
+    const updateRes = await fetch(`${apiBase}/functions/nurses/${nurse.id}/deactivate`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+
+    if (!updateRes.ok) {
       setNurses(previousNurses);
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      const errJson = await updateRes.json().catch(() => ({}));
+      toast({ title: "Error", description: errJson.error || "Failed to deactivate nurse", variant: "destructive" });
       return;
     }
 
@@ -721,7 +788,7 @@ const HNManageView = () => {
     }
 
     toast({ title: "Nurse Removed", description: `${nurse.name} has been deactivated.` });
-    fetchData();
+    if (myDeptId) fetchData(myDeptId);
   };
 
   const filtered = nurses.filter((n) => {
@@ -733,10 +800,23 @@ const HNManageView = () => {
     return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
+  if (!myDeptId) {
+    return (
+      <div className="rounded-xl bg-card p-14 text-center shadow-card">
+        <Users className="mx-auto h-10 w-10 text-muted-foreground/30" />
+        <p className="mt-4 text-sm font-medium text-foreground">No Department Assigned</p>
+        <p className="text-xs text-muted-foreground">Ask an Admin to assign you a department before managing nurses.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-bold text-foreground">Manage Nurses</h2>
+        <div>
+          <h2 className="text-lg font-bold text-foreground">Manage Nurses</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">{myDeptName} · {nurses.length} active nurses</p>
+        </div>
         <div className="flex items-center gap-2">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -773,18 +853,28 @@ const HNManageView = () => {
             </div>
             <div className="space-y-2">
               <Label>Department</Label>
-              <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={newDeptId} onChange={(e) => setNewDeptId(e.target.value)}>
-                <option value="">Select department</option>
-                {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
+              <Input value={myDeptName || ""} readOnly disabled className="bg-muted text-muted-foreground cursor-not-allowed" />
             </div>
             <div className="space-y-2"><Label>Experience (years)</Label><Input type="number" placeholder="0" value={newExperience} onChange={(e) => setNewExperience(e.target.value)} /></div>
             <div className="space-y-2"><Label>Exam Score (%)</Label><Input type="number" placeholder="0-100" value={newExamScore} onChange={(e) => setNewExamScore(e.target.value)} /></div>
           </div>
-          <Button variant="hero" className="mt-4" onClick={handleAddNurse} disabled={saving}>
-            {saving && <Loader2 size={16} className="mr-1 animate-spin" />}
-            Save Nurse
-          </Button>
+          <div className="mt-4 flex gap-2">
+            <Button variant="hero" onClick={handleAddNurse} disabled={saving}>
+              {saving && <Loader2 size={16} className="mr-1 animate-spin" />}
+              Save Nurse
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAdd(false);
+                setNewName(""); setNewPhone(""); setNewAge(""); setNewGender("");
+                setNewDivisionId(""); setNewExperience(""); setNewExamScore("");
+              }}
+              disabled={saving}
+            >
+              Cancel
+            </Button>
+          </div>
         </div>
       )}
 

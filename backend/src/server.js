@@ -9,6 +9,7 @@ import dbRoutes from "./routes/db.js";
 import functionRoutes from "./routes/functions.js";
 import storageRoutes from "./routes/storage.js";
 import notificationRoutes from "./routes/notifications.js";
+import { startReminderScheduler } from "./lib/reminderScheduler.js";
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -86,6 +87,8 @@ async function bootstrap() {
 
   const server = app.listen(port, () => {
     console.log(`Backend listening on http://localhost:${port}`);
+    // Start duty-reminder scheduler after server is up and Mongo is connected
+    startReminderScheduler();
   });
 
   server.on("error", (error) => {

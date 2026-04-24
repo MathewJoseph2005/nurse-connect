@@ -44,7 +44,7 @@ function setSession(token: string | null, user: any | null) {
 
 async function apiRequest(path: string, init: RequestInit = {}) {
   const token = getStoredToken();
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(init.headers || {}),
   };
@@ -177,23 +177,19 @@ class QueryBuilder {
         return { data: null, error };
       }
     };
-    
-    const selectOps = {
-      select: async () => {
-        return run();
-      },
-    };
-    
-    return {
+
+    // Each .eq() adds a filter then returns a then-able so `await .update().eq()` works.
+    const chainable: any = {
       eq: (field: string, value: any) => {
         this.eq(field, value);
-        return selectOps;
+        return chainable;          // allow further .eq() chaining
       },
-      select: async () => {
-        return run();
-      },
-      then: (resolve: (value: any) => any, reject?: (reason: any) => any) => run().then(resolve, reject),
+      select: async () => run(),
+      then: (resolve: (value: any) => any, reject?: (reason: any) => any) =>
+        run().then(resolve, reject),
     };
+
+    return chainable;
   }
 
   delete() {

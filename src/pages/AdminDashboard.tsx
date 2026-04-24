@@ -17,9 +17,10 @@ import logo from "@/assets/logo.png";
 type Tab = "overview" | "nurses" | "head_nurses" | "admins" | "schedules" | "swaps" | "logs";
 
 const SHIFT_LABELS: Record<string, string> = {
-  morning: "Morning (6AM-2PM)",
-  evening: "Evening (2PM-10PM)",
-  night: "Night (10PM-6AM)",
+  day:     "Day Shift (6AM – 6PM)",
+  night:   "Night Shift (6PM – 6AM)",
+  morning: "Morning (6AM – 2PM)",
+  evening: "Evening (2PM – 10PM)",
 };
 
 function getISOWeek(date: Date): number {
@@ -501,9 +502,10 @@ const AdminNurses = () => {
 // ─── Schedules ──────────────────────────────────────────────────
 
 const SHIFT_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
-  morning: { bg: "bg-blue-50 border-blue-200", text: "text-blue-700", dot: "bg-blue-400" },
-  evening: { bg: "bg-rose-50 border-rose-200", text: "text-rose-600", dot: "bg-rose-400" },
-  night:   { bg: "bg-slate-100 border-slate-300", text: "text-slate-700", dot: "bg-slate-500" },
+  day:     { bg: "bg-amber-50 border-amber-200",   text: "text-amber-700",  dot: "bg-amber-400" },
+  night:   { bg: "bg-indigo-50 border-indigo-200", text: "text-indigo-700", dot: "bg-indigo-500" },
+  morning: { bg: "bg-blue-50 border-blue-200",     text: "text-blue-700",   dot: "bg-blue-400" },
+  evening: { bg: "bg-rose-50 border-rose-200",     text: "text-rose-600",   dot: "bg-rose-400" },
 };
 
 const WEEK_OPTIONS = Array.from({ length: 53 }, (_, i) => i + 1);
@@ -639,9 +641,8 @@ const AdminSchedules = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Shifts</SelectItem>
-              <SelectItem value="morning">Morning (6AM–2PM)</SelectItem>
-              <SelectItem value="evening">Evening (2PM–10PM)</SelectItem>
-              <SelectItem value="night">Night (10PM–6AM)</SelectItem>
+              <SelectItem value="day">Day Shift (6AM – 6PM)</SelectItem>
+              <SelectItem value="night">Night Shift (6PM – 6AM)</SelectItem>
             </SelectContent>
           </Select>
 
@@ -733,7 +734,7 @@ const AdminSchedules = () => {
                       const dayLabel = new Date(date + "T00:00:00").toLocaleDateString("en-US", {
                         weekday: "long", month: "short", day: "numeric",
                       });
-                      const shiftOrder: Record<string, number> = { morning: 0, evening: 1, night: 2 };
+                      const shiftOrder: Record<string, number> = { day: 0, night: 1, morning: 2, evening: 3 };
                       const sortedRows = [...dayRows].sort(
                         (a, b) => (shiftOrder[a.shift_type] ?? 9) - (shiftOrder[b.shift_type] ?? 9)
                       );
@@ -845,14 +846,20 @@ const AdminSwaps = () => {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                {s.status === "pending" ? (
+                {s.status === "pending_admin" || s.status === "pending" ? (
                   <>
                     <Button variant="hero" size="sm" onClick={() => handleAction(s.id, "approved")}><Check size={14} className="mr-1" /> Approve</Button>
                     <Button variant="outline" size="sm" onClick={() => handleAction(s.id, "rejected")}><XCircle size={14} className="mr-1" /> Reject</Button>
                   </>
                 ) : (
-                  <Badge className={s.status === "approved" ? "bg-primary/10 text-primary border-0" : "bg-destructive/10 text-destructive border-0"}>
-                    {s.status.charAt(0).toUpperCase() + s.status.slice(1)}
+                  <Badge 
+                    className={
+                      s.status === "approved" ? "bg-primary/10 text-primary border-0" : 
+                      s.status === "rejected" ? "bg-destructive/10 text-destructive border-0" :
+                      "bg-amber-100 text-amber-700 border-0 dark:bg-amber-900/30 dark:text-amber-400"
+                    }
+                  >
+                    {s.status === "pending_target" ? "Pending Target Nurse" : s.status.charAt(0).toUpperCase() + s.status.slice(1)}
                   </Badge>
                 )}
               </div>

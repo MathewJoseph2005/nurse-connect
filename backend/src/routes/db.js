@@ -1,4 +1,5 @@
 import express from "express";
+import mongoose from "mongoose";
 import {
   ActivityLog,
   Admin,
@@ -38,7 +39,7 @@ const modelMap = {
 
 const populateMap = {
   nurses: [
-    { path: "division_id", select: "name", model: "Division" },
+    { path: "division_id", select: "name acuity_level", model: "Division" },
     { path: "current_department_id", select: "name", model: "Department" },
   ],
   head_nurses: [{ path: "department_id", select: "name", model: "Department" }],
@@ -107,7 +108,22 @@ function shapeRow(table, row) {
   }
 
   if (table === "nurses") {
-    base.divisions = row.division_id ? { name: row.division_id.name } : null;
+    // division_id may be a populated object or a plain ObjectId — always normalise to a string
+    if (row.division_id && typeof row.division_id === "object" && row.division_id._id) {
+      base.divisions = {
+        id: row.division_id._id.toString(),
+        name: row.division_id.name,
+        acuity_level: row.division_id.acuity_level ?? null,
+      };
+      base.division_id = row.division_id._id.toString();
+    } else if (row.division_id) {
+      // Plain ObjectId (not populated)
+      base.divisions = null;
+      base.division_id = row.division_id.toString();
+    } else {
+      base.divisions = null;
+      base.division_id = null;
+    }
     base.departments = row.current_department_id ? { name: row.current_department_id.name } : null;
   }
   if (table === "head_nurses") {

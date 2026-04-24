@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import {
   Calendar, Users, ArrowLeftRight, ClipboardCheck, UserPlus, LogOut,
   Menu, X, Check, XCircle, Search, Star, Trash2, Loader2, Wand2, User, Edit3
 } from "lucide-react";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/logo.svg";
 
 type Tab = "schedule" | "swaps" | "performance" | "manage";
 
@@ -85,11 +85,9 @@ const HeadNurseDashboard = () => {
       <aside className={`fixed inset-y-0 left-0 z-40 w-64 transform bg-card shadow-card transition-transform md:relative md:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex h-full flex-col">
           <div className="flex items-center gap-3 border-b p-4">
-            <img src={logo} alt="Logo" className="h-10 w-10 rounded-lg" />
-            <div>
-              <p className="text-sm font-bold text-foreground">Caritas Hospital</p>
-              <p className="text-xs text-muted-foreground">{hnProfile?.name || "Head Nurse"}</p>
-            </div>
+            <Link to="/">
+              <img src={logo} alt="Logo" className="h-12 w-auto object-contain" />
+            </Link>
             <button onClick={() => setSidebarOpen(false)} className="ml-auto md:hidden"><X size={20} /></button>
           </div>
           <nav className="flex-1 space-y-1 p-3">
@@ -192,7 +190,7 @@ const HeadNurseDashboard = () => {
   );
 };
 
-// ─── Schedule View ──────────────────────────────────────────────
+// â”€â”€â”€ Schedule View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface ScheduleRow {
   id: string;
@@ -211,11 +209,11 @@ const ACUITY_COLORS: Record<string, string> = {
 };
 
 const SHIFT_LABELS: Record<string, string> = {
-  day:     "Day Shift (6AM – 6PM)",
-  night:   "Night Shift (6PM – 6AM)",
+  day:     "Day Shift (6AM â€“ 6PM)",
+  night:   "Night Shift (6PM â€“ 6AM)",
   // legacy labels for any old seeded data
-  morning: "Morning (6AM – 2PM)",
-  evening: "Evening (2PM – 10PM)",
+  morning: "Morning (6AM â€“ 2PM)",
+  evening: "Evening (2PM â€“ 10PM)",
 };
 
 const HNScheduleView = () => {
@@ -426,7 +424,7 @@ const HNScheduleView = () => {
             </tbody>
           </table>
           <div className="border-t px-4 py-3 text-xs text-muted-foreground">
-            {filtered.length} entries • {new Set(filtered.map((s) => s.nurse?.id)).size} nurses
+            {filtered.length} entries â€¢ {new Set(filtered.map((s) => s.nurse?.id)).size} nurses
           </div>
         </div>
       )}
@@ -459,7 +457,7 @@ const HNScheduleView = () => {
   );
 };
 
-// ─── Swap View ──────────────────────────────────────────────────
+// â”€â”€â”€ Swap View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const HNSwapView = () => {
   const [swaps, setSwaps] = useState<any[]>([]);
@@ -523,11 +521,11 @@ const HNSwapView = () => {
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="space-y-2">
                 <p className="text-sm font-bold text-foreground">
-                  {r.requester?.name || "Unknown"} ↔ {r.target?.name || "Unknown"}
+                  {r.requester?.name || "Unknown"} â†” {r.target?.name || "Unknown"}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {r.requester_schedule?.shift_type} — {r.requester_schedule?.department?.name} ⟷{" "}
-                  {r.target_schedule?.shift_type} — {r.target_schedule?.department?.name}
+                  {r.requester_schedule?.shift_type} â€” {r.requester_schedule?.department?.name} âŸ·{" "}
+                  {r.target_schedule?.shift_type} â€” {r.target_schedule?.department?.name}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   Date: {r.requester_schedule?.duty_date}
@@ -549,7 +547,7 @@ const HNSwapView = () => {
   );
 };
 
-// ─── Performance View ───────────────────────────────────────────
+// â”€â”€â”€ Performance View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const HNPerformanceView = () => {
   const { user } = useAuth();
@@ -720,9 +718,9 @@ const HNPerformanceView = () => {
                       <div className="h-2 rounded-full bg-primary" style={{ width: `${score}%` }} />
                     </div>
                     <div className="mt-3 flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
-                      <span>Attendance: {attendanceScore ?? "—"}%</span>
-                      <span>Quality: {qualityScore ?? "—"}%</span>
-                      <span>Reliability: {reliabilityScore ?? "—"}%</span>
+                      <span>Attendance: {attendanceScore ?? "â€”"}%</span>
+                      <span>Quality: {qualityScore ?? "â€”"}%</span>
+                      <span>Reliability: {reliabilityScore ?? "â€”"}%</span>
                     </div>
                     {ev?.remarks && (
                       <p className="mt-2 text-xs text-muted-foreground italic truncate">"{ev.remarks}"</p>
@@ -733,7 +731,7 @@ const HNPerformanceView = () => {
                 )}
                 <div className="mt-2 text-xs text-muted-foreground">
                   Experience: {n.experience_years || 0} yrs
-                  {ev?.evaluation_period && <span> • Period: {ev.evaluation_period}</span>}
+                  {ev?.evaluation_period && <span> â€¢ Period: {ev.evaluation_period}</span>}
                 </div>
               </div>
             );
@@ -778,7 +776,7 @@ const HNPerformanceView = () => {
   );
 };
 
-// ─── Manage Nurses View ─────────────────────────────────────────
+// â”€â”€â”€ Manage Nurses View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const HNManageView = () => {
   const { user } = useAuth();
@@ -802,14 +800,14 @@ const HNManageView = () => {
   const [newExperience, setNewExperience] = useState("");
   const [newExamScore, setNewExamScore] = useState("");
 
-  // Step 1 — resolve HN's department, then step 2 — fetch scoped nurses
+  // Step 1 â€” resolve HN's department, then step 2 â€” fetch scoped nurses
   const fetchData = useCallback(async (deptId: string) => {
     const [nursesRes, divsRes] = await Promise.all([
       supabase
         .from("nurses")
         .select("id, name, phone, age, gender, experience_years, exam_score_percentage, division_id, current_department_id, is_active, divisions:divisions(id, name, acuity_level), departments:departments(name)")
         .eq("is_active", true)
-        .eq("current_department_id", deptId),   // ← scoped to THIS department only
+        .eq("current_department_id", deptId),   // â† scoped to THIS department only
       supabase.from("divisions").select("id, name, acuity_level").order("acuity_level"),
     ]);
     setNurses(nursesRes.data || []);
@@ -857,7 +855,7 @@ const HNManageView = () => {
       age: newAge ? parseInt(newAge) : null,
       gender: newGender as any || null,
       division_id: newDivisionId || null,
-      current_department_id: myDeptId,          // ← always assigned to HN's own dept
+      current_department_id: myDeptId,          // â† always assigned to HN's own dept
       experience_years: newExperience ? parseInt(newExperience) : 0,
       exam_score_percentage: newExamScore ? parseFloat(newExamScore) : null,
     });
@@ -974,7 +972,7 @@ const HNManageView = () => {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-foreground">Manage Nurses</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">{myDeptName} · {nurses.length} active nurses</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{myDeptName} Â· {nurses.length} active nurses</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
@@ -1074,7 +1072,7 @@ const HNManageView = () => {
                       ))}
                     </select>
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">{n.departments?.name || "—"}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{n.departments?.name || "â€”"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{n.phone}</td>
                   <td className="px-4 py-3 text-muted-foreground">{n.experience_years || 0} yrs</td>
                   <td className="px-4 py-3">

@@ -1,14 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowLeft, Mail, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/logo.svg";
+import loginBg from "@/assets/nurses/nurse-1.jpg";
 
 const UnifiedLogin = () => {
   const [email, setEmail] = useState("");
@@ -65,92 +66,106 @@ const UnifiedLogin = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700">
-      {/* Header */}
-      <header className="border-b border-white/10 bg-white/5 backdrop-blur-sm px-4 py-4">
-        <div className="mx-auto max-w-md">
-          <div className="flex items-center gap-3">
-            <img src={logo} alt="Caritas Hospital" className="h-10 w-10 rounded-lg" />
-            <div>
-              <span className="block text-lg font-bold text-white leading-tight">Caritas Hospital</span>
-              <span className="block text-xs text-white/70 leading-none">Nurses Connect</span>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden font-sans">
+      {/* Background Image with Overlay */}
+      <div 
+        className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat scale-105"
+        style={{ backgroundImage: `url(${loginBg})` }}
+      >
+        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-[8px]" />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-slate-900/40" />
+      </div>
 
-      {/* Main Content */}
-      <div className="flex min-h-[calc(100vh-80px)] items-center justify-center px-4 py-8">
-        <div className="w-full max-w-md rounded-xl bg-white shadow-2xl">
-          {/* Form Container */}
-          <div className="p-8">
+      <div className="relative z-10 w-full max-w-md animate-fade-in">
+        {/* Logo Header */}
+        <div className="flex flex-col items-center mb-8">
+          <Link to="/" className="group flex items-center justify-center w-20 h-20 bg-white/10 hover:bg-white/20 backdrop-blur-xl rounded-3xl border border-white/20 shadow-2xl transition-all hover:scale-105 mb-6">
+            <img src={logo} alt="Caritas Hospital" className="h-10 w-auto object-contain brightness-0 invert group-hover:rotate-6 transition-transform" />
+          </Link>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight">Nurse<span className="text-primary">Connect</span></h1>
+          <p className="text-slate-300 mt-2 font-medium">Caritas Hospital Staff Portal</p>
+        </div>
+
+        {/* Glassmorphism Card */}
+        <div className="rounded-[2.5rem] bg-white/10 backdrop-blur-2xl border border-white/20 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] overflow-hidden">
+          <div className="p-8 sm:p-10">
             <div className="mb-8">
-              <h1 className="text-2xl font-bold text-foreground">Login</h1>
-              <p className="text-sm text-muted-foreground">Enter your credentials to access the portal</p>
+              <h2 className="text-2xl font-bold text-white mb-1">Welcome Back</h2>
+              <p className="text-sm text-slate-300">Enter your credentials to access your dashboard</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Email/Username Field */}
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium">
+                <Label htmlFor="email" className="text-sm font-semibold text-slate-200">
                   Email or Username
                 </Label>
-                <Input
-                  id="email"
-                  type="text"
-                  placeholder="Enter your email or username"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={loading}
-                />
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <Input
+                    id="email"
+                    type="text"
+                    placeholder="name@caritashospital.org"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={loading}
+                    className="h-14 pl-12 bg-black/20 border-white/10 text-white placeholder:text-slate-400 focus:bg-black/40 focus:border-primary/50 transition-all rounded-2xl"
+                  />
+                </div>
               </div>
 
               {/* Password Field */}
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium">
-                  Password
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
-                />
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password" className="text-sm font-semibold text-slate-200">
+                    Password
+                  </Label>
+                  <a href="#" className="text-xs text-primary hover:text-white transition-colors font-medium">Forgot password?</a>
+                </div>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={loading}
+                    className="h-14 pl-12 bg-black/20 border-white/10 text-white placeholder:text-slate-400 focus:bg-black/40 focus:border-primary/50 transition-all rounded-2xl"
+                  />
+                </div>
               </div>
 
               {/* Submit Button */}
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+                className="w-full h-14 bg-primary hover:bg-primary/90 text-white font-bold text-lg rounded-2xl shadow-lg shadow-primary/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
                 {loading ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Logging in...
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Authenticating...
                   </>
                 ) : (
-                  "Login"
+                  "Secure Login"
                 )}
               </Button>
             </form>
-
-            {/* Additional Info */}
-            <div className="mt-6 rounded-lg bg-blue-50 p-4">
-              <p className="text-sm text-blue-900">
-                <span className="font-semibold">Tip:</span> Use your email, username, or phone number to login. The system will automatically recognize your role.
-              </p>
-            </div>
           </div>
 
-          {/* Footer */}
-          <div className="border-t border-gray-200 bg-gray-50 px-8 py-4 rounded-b-xl">
-            <p className="text-center text-xs text-muted-foreground">
-              © 2024 Caritas Hospital. All rights reserved.
-            </p>
+          {/* Footer inside card */}
+          <div className="bg-black/30 backdrop-blur-md p-6 text-center border-t border-white/10">
+             <Link to="/" className="inline-flex items-center text-sm font-medium text-slate-300 hover:text-white transition-colors">
+               <ArrowLeft className="w-4 h-4 mr-2" />
+               Return to Home
+             </Link>
           </div>
+        </div>
+        
+        {/* Floating Help Text */}
+        <div className="mt-8 text-center text-sm text-slate-400">
+          Having trouble logging in? <br/> Contact IT Support at <a href="tel:04812792500" className="text-white hover:text-primary transition-colors font-semibold">0481 279 2500</a>
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { ArrowLeft, Phone, Lock, UserPlus, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/logo.svg";
 
 const NurseLogin = () => {
   const [isRegister, setIsRegister] = useState(false);
@@ -101,7 +101,7 @@ const NurseLogin = () => {
         </Link>
         <div className="rounded-2xl bg-card p-8 shadow-card">
           <div className="flex flex-col items-center">
-            <img src={logo} alt="Nurses Connect" className="h-16 w-16 rounded-xl" />
+            <img src={logo} alt="Nurses Connect" className="h-16 w-auto object-contain" />
             <h1 className="mt-4 text-2xl font-bold text-foreground">{isRegister ? "Nurse Registration" : "Nurse Login"}</h1>
             <p className="mt-1 text-sm text-muted-foreground">{isRegister ? "Register with your hospital phone number" : "Access your duty schedule"}</p>
           </div>

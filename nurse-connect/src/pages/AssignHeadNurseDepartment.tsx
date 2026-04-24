@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -281,7 +281,7 @@ const AssignHeadNurseDepartment = () => {
                         </TableCell>
                         <TableCell className="font-medium">{hn.name}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{hn.username}</TableCell>
-                        <TableCell className="text-sm">{hn.phone || "—"}</TableCell>
+                        <TableCell className="text-sm">{hn.phone || "â€”"}</TableCell>
                         <TableCell className="text-sm">
                           {hn.departments?.name || "Not assigned"}
                         </TableCell>

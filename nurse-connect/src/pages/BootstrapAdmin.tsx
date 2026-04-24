@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { ArrowLeft, User, Lock, Loader2, AlertCircle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/logo.svg";
 
 const BootstrapAdmin = () => {
   const [email, setEmail] = useState("");
@@ -107,7 +107,7 @@ const BootstrapAdmin = () => {
         </Link>
         <div className="rounded-2xl bg-card p-8 shadow-card">
           <div className="flex flex-col items-center">
-            <img src={logo} alt="Caritas Hospital" className="h-16 w-16 rounded-xl" />
+            <img src={logo} alt="Caritas Hospital" className="h-16 w-auto object-contain" />
             <h1 className="mt-4 text-2xl font-bold text-foreground">Create First Admin</h1>
             <p className="mt-1 text-sm text-muted-foreground">Bootstrap the initial administrator account</p>
           </div>

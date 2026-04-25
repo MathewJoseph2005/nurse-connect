@@ -13,7 +13,15 @@ services:
         value: 10000
       - key: MONGODB_URI
         sync: false
-        placeholder: "Your MongoDB Connection String"
+        placeholder: "Your MongoDB Connection String (SRV)"
+      - key: MONGODB_URI_DIRECT
+        sync: false
+        placeholder: "Your MongoDB Connection String (Direct/Non-SRV)"
+      - key: MONGODB_PREFER_DIRECT
+        value: "true"
+      - key: GROQ_API_KEY
+        sync: false
+        placeholder: "Your Groq API Key"
       - key: JWT_SECRET
         generateValue: true
       - key: CORS_ORIGIN
@@ -21,4 +29,3 @@ services:
         placeholder: "Your App URL (e.g., https://nurse-connect.onrender.com)"
       - key: VITE_API_BASE_URL
         value: "/api"
-

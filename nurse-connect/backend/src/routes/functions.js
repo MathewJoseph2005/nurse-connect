@@ -307,6 +307,7 @@ router.post("/generate-schedule", requireAuth, requireRole("admin", "head_nurse"
   } catch (error) {
     return res.status(400).json({ error: error.message || "Failed to generate schedule" });
   }
+});
 
 async function performScheduleSwap(swapId, performerId) {
   const swap = await ShiftSwapRequest.findById(swapId);

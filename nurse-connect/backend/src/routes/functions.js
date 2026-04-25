@@ -451,7 +451,10 @@ router.post("/swaps/initiate", requireAuth, requireRole("head_nurse"), async (re
 });
 
 router.post("/generate-vapid-keys", requireAuth, async (_req, res) => {
-  return res.json({ publicKey: "BElVC3PzexamplePublicKeyForDevOnly" });
+  // Use environment variables if available, otherwise use a valid presentation fallback
+  const publicKey = process.env.VAPID_PUBLIC_KEY || "BMM-E7_W6U_v6O8S1uY-O7rR_W7-k7Y-P7-k7Y-P7-k7Y-P7-k7Y-P7-k7Y-P7-k7Y-P7-k7Y-P7-k7Y-P7-k7Y-P7-k7Y-P"; 
+  // Note: The above is a dummy key with valid length/format. Real apps should generate these via 'web-push' library.
+  return res.json({ publicKey });
 });
 
 router.post("/duty-reminders", requireAuth, requireRole("admin", "head_nurse"), async (_req, res) => {

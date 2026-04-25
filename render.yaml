@@ -3,6 +3,7 @@ services:
     name: nurse-connect
     env: node
     plan: free
+    rootDir: nurse-connect
     buildCommand: npm install && npm run build
     startCommand: npm start
     envVars:
@@ -22,5 +23,5 @@ services:
         value: "/api"
     disk:
       name: uploads-storage
-      mountPath: /opt/render/project/src/backend/uploads
+      mountPath: /opt/render/project/src/nurse-connect/backend/uploads
       sizeGB: 1

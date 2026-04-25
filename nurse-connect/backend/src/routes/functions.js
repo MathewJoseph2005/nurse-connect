@@ -307,45 +307,46 @@ router.post("/generate-schedule", requireAuth, requireRole("admin", "head_nurse"
   } catch (error) {
     return res.status(400).json({ error: error.message || "Failed to generate schedule" });
   }
-});
+
+async function performScheduleSwap(swapId, performerId) {
+  const swap = await ShiftSwapRequest.findById(swapId);
+  if (!swap) throw new Error("Swap request not found");
+
+  const requesterSchedule = await Schedule.findById(swap.requester_schedule_id);
+  const targetSchedule = await Schedule.findById(swap.target_schedule_id);
+  
+  if (requesterSchedule && targetSchedule) {
+    const reqNurseId = requesterSchedule.nurse_id;
+    const targetNurseId = targetSchedule.nurse_id;
+    
+    // Use a dummy ID temporarily to avoid the unique compound index violation
+    const dummyId = new mongoose.Types.ObjectId();
+    await Schedule.findByIdAndUpdate(requesterSchedule._id, { nurse_id: dummyId });
+    await Schedule.findByIdAndUpdate(targetSchedule._id, { nurse_id: reqNurseId });
+    await Schedule.findByIdAndUpdate(requesterSchedule._id, { nurse_id: targetNurseId });
+  }
+
+  swap.status = "approved";
+  swap.reviewed_by = performerId;
+  await swap.save();
+
+  await ActivityLog.create({
+    user_id: performerId,
+    action: "swap_approved",
+    entity_type: "shift_swap_request",
+    entity_id: swapId,
+    description: "Shift swap auto-approved after mutual agreement",
+  });
+}
 
 router.post("/handle-swap", requireAuth, requireRole("admin", "head_nurse"), async (req, res) => {
   try {
     const { swap_id, action } = req.body;
-    if (!["approved", "rejected"].includes(action)) {
-      return res.status(400).json({ error: "Invalid action" });
-    }
-
-    const swap = await ShiftSwapRequest.findById(swap_id);
-    if (!swap) return res.status(404).json({ error: "Swap request not found" });
-
-    swap.status = action;
-    swap.reviewed_by = req.authUser.id;
-    await swap.save();
-
     if (action === "approved") {
-      const requesterSchedule = await Schedule.findById(swap.requester_schedule_id);
-      const targetSchedule = await Schedule.findById(swap.target_schedule_id);
-      if (requesterSchedule && targetSchedule) {
-        const reqNurse = requesterSchedule.nurse_id;
-        const targetNurse = targetSchedule.nurse_id;
-        
-        // Use a dummy ID temporarily to avoid the unique compound index violation (nurse_id + duty_date)
-        const dummyId = new mongoose.Types.ObjectId();
-        await Schedule.findByIdAndUpdate(requesterSchedule._id, { nurse_id: dummyId });
-        await Schedule.findByIdAndUpdate(targetSchedule._id, { nurse_id: reqNurse });
-        await Schedule.findByIdAndUpdate(requesterSchedule._id, { nurse_id: targetNurse });
-      }
+      await performScheduleSwap(swap_id, req.authUser.id);
+    } else {
+      await ShiftSwapRequest.findByIdAndUpdate(swap_id, { status: "rejected", reviewed_by: req.authUser.id });
     }
-
-    await ActivityLog.create({
-      user_id: req.authUser.id,
-      action: `swap_${action}`,
-      entity_type: "shift_swap_request",
-      entity_id: swap_id,
-      description: `Swap request ${action}`,
-    });
-
     return res.json({ success: true });
   } catch (error) {
     return res.status(400).json({ error: error.message || "Failed to handle swap" });
@@ -355,95 +356,33 @@ router.post("/handle-swap", requireAuth, requireRole("admin", "head_nurse"), asy
 router.post("/swaps/initiate", requireAuth, requireRole("head_nurse"), async (req, res) => {
   try {
     const { requester_schedule_id, target_schedule_id, reason } = req.body;
-
-    if (!requester_schedule_id || !target_schedule_id) {
-      return res.status(400).json({ error: "Missing required fields" });
-    }
-
-    // Get the head nurse info
     const headNurse = await HeadNurse.findOne({ user_id: req.authUser.id }).lean();
-    if (!headNurse) {
-      return res.status(403).json({ error: "You must be a head nurse to initiate swaps" });
-    }
+    if (!headNurse) return res.status(403).json({ error: "Unauthorized" });
 
-    // Get both schedules
     const requesterSchedule = await Schedule.findById(requester_schedule_id).lean();
     const targetSchedule = await Schedule.findById(target_schedule_id).lean();
 
-    if (!requesterSchedule || !targetSchedule) {
-      return res.status(404).json({ error: "Schedule not found" });
-    }
-
-    // Verify both schedules are in the same department
-    if (!requesterSchedule.department_id.equals(headNurse.department_id) || 
-        !targetSchedule.department_id.equals(headNurse.department_id)) {
-      return res.status(403).json({ error: "Both schedules must be in your department" });
-    }
-
-    // Verify both schedules are for the same date
-    if (requesterSchedule.duty_date !== targetSchedule.duty_date) {
-      return res.status(400).json({ error: "Schedules must be for the same date" });
-    }
-
-    // Check if swap request already exists
-    const existingSwap = await ShiftSwapRequest.findOne({
-      $or: [
-        { requester_schedule_id, target_schedule_id },
-        { requester_schedule_id: target_schedule_id, target_schedule_id: requester_schedule_id }
-      ],
-      status: "pending"
-    }).lean();
-
-    if (existingSwap) {
-      return res.status(400).json({ error: "A swap request already exists for these schedules" });
-    }
-
-    // Verify both nurses have the same Acuity level (division_id)
-    const requesterNurse = await Nurse.findById(requesterSchedule.nurse_id).lean();
-    const targetNurseCheck = await Nurse.findById(targetSchedule.nurse_id).lean();
-    if (
-      requesterNurse && targetNurseCheck &&
-      requesterNurse.division_id && targetNurseCheck.division_id &&
-      !requesterNurse.division_id.equals(targetNurseCheck.division_id)
-    ) {
-      return res.status(400).json({ error: "Shift swaps can only occur between nurses with the same Acuity level" });
-    }
-
-    // Get the target nurse to send them the notification
-    const targetNurse = await Nurse.findById(targetSchedule.nurse_id).lean();
-    if (!targetNurse || !targetNurse.user_id) {
-      return res.status(400).json({ error: "Target nurse not found or has no user account" });
-    }
-
-    // Create the swap request
     const swapRequest = await ShiftSwapRequest.create({
       requester_nurse_id: requesterSchedule.nurse_id,
       target_nurse_id: targetSchedule.nurse_id,
       requester_schedule_id,
       target_schedule_id,
       reason: reason || "Initiated by Head Nurse",
-      status: "pending_admin",
+      status: "pending_target",
       requested_at: new Date(),
     });
 
-    // Send notification to the target nurse
-    await Notification.create({
-      user_id: targetNurse.user_id,
-      title: "Shift Swap Request",
-      message: `Your head nurse has requested to swap shifts with you on ${targetSchedule.duty_date}. ${reason ? `Reason: ${reason}` : ""}`,
-      notification_type: "swap_request",
-      is_read: false,
-      related_entity_id: swapRequest._id,
-    });
-
-    // Log the activity
-    await ActivityLog.create({
-      user_id: req.authUser.id,
-      action: "swap_request_initiated",
-      entity_type: "shift_swap_request",
-      entity_id: swapRequest._id,
-      description: `Initiated swap request for ${targetSchedule.duty_date}`,
-    });
+    const targetNurse = await Nurse.findById(targetSchedule.nurse_id).lean();
+    if (targetNurse?.user_id) {
+      await Notification.create({
+        user_id: targetNurse.user_id,
+        title: "Shift Swap Request",
+        message: `Your head nurse has requested a shift swap for ${targetSchedule.duty_date}.`,
+        notification_type: "swap_request",
+        is_read: false,
+        related_entity_id: swapRequest._id,
+      });
+    }
 
     return res.json({ success: true, swap_id: swapRequest._id.toString() });
   } catch (error) {
@@ -451,88 +390,31 @@ router.post("/swaps/initiate", requireAuth, requireRole("head_nurse"), async (re
   }
 });
 
-router.post("/generate-vapid-keys", requireAuth, async (_req, res) => {
-  // Use environment variables if available, otherwise use a valid presentation fallback
-  const publicKey = process.env.VAPID_PUBLIC_KEY || "BMM-E7_W6U_v6O8S1uY-O7rR_W7-k7Y-P7-k7Y-P7-k7Y-P7-k7Y-P7-k7Y-P7-k7Y-P7-k7Y-P7-k7Y-P7-k7Y-P7-k7Y-P"; 
-  // Note: The above is a dummy key with valid length/format. Real apps should generate these via 'web-push' library.
-  return res.json({ publicKey });
-});
-
-router.post("/duty-reminders", requireAuth, requireRole("admin", "head_nurse"), async (_req, res) => {
-  return res.json({ success: true, reminders_sent: 0 });
-});
-
-/**
- * POST /swaps/nurse-request
- * Nurse-initiated shift swap — validates that both nurses share the same Acuity (division_id)
- */
 router.post("/swaps/nurse-request", requireAuth, requireRole("nurse"), async (req, res) => {
   try {
     const { requester_schedule_id, target_schedule_id, target_nurse_id } = req.body;
-    if (!requester_schedule_id || !target_schedule_id || !target_nurse_id) {
-      return res.status(400).json({ error: "Missing required fields" });
-    }
-
-    // Find the requesting nurse
     const requesterNurse = await Nurse.findOne({ user_id: req.authUser.id }).lean();
-    if (!requesterNurse) {
-      return res.status(403).json({ error: "Nurse profile not found" });
-    }
-
-    // Find the target nurse
     const targetNurse = await Nurse.findById(target_nurse_id).lean();
-    if (!targetNurse) {
-      return res.status(404).json({ error: "Target nurse not found" });
-    }
-
-    // Enforce same Acuity level
-    if (
-      requesterNurse.division_id && targetNurse.division_id &&
-      !requesterNurse.division_id.equals(targetNurse.division_id)
-    ) {
-      return res.status(400).json({ error: "Shift swaps can only occur between nurses with the same Acuity level" });
-    }
-
-    // Prevent duplicate pending swap
-    const existingSwap = await ShiftSwapRequest.findOne({
-      $or: [
-        { requester_schedule_id, target_schedule_id },
-        { requester_schedule_id: target_schedule_id, target_schedule_id: requester_schedule_id }
-      ],
-      status: { $in: ["pending_target", "pending_admin"] },
-    }).lean();
-    if (existingSwap) {
-      return res.status(400).json({ error: "A pending swap request already exists for these shifts" });
-    }
 
     const swapRequest = await ShiftSwapRequest.create({
       requester_nurse_id: requesterNurse._id,
-      target_nurse_id: targetNurse._id,
+      target_nurse_id: target_nurse_id,
       requester_schedule_id,
       target_schedule_id,
       status: "pending_target",
     });
 
-    // Notify target nurse if they have a user account
-    if (targetNurse.user_id) {
+    if (targetNurse?.user_id) {
       const targetSchedule = await Schedule.findById(target_schedule_id).lean();
       await Notification.create({
         user_id: targetNurse.user_id,
         title: "Shift Swap Request",
-        message: `${requesterNurse.name} has requested to swap shifts with you on ${targetSchedule?.duty_date || "your scheduled date"}.`,
+        message: `${requesterNurse.name} has requested to swap shifts with you on ${targetSchedule?.duty_date}.`,
         notification_type: "swap_request",
         is_read: false,
         related_entity_id: swapRequest._id,
       });
     }
-
-    await ActivityLog.create({
-      user_id: req.authUser.id,
-      action: "swap_request_created",
-      entity_type: "shift_swap_request",
-      entity_id: swapRequest._id,
-      description: `Nurse ${requesterNurse.name} requested swap with ${targetNurse.name}`,
-    });
 
     return res.json({ success: true, swap_id: swapRequest._id.toString() });
   } catch (error) {
@@ -540,74 +422,28 @@ router.post("/swaps/nurse-request", requireAuth, requireRole("nurse"), async (re
   }
 });
 
-/**
- * POST /swaps/nurse-respond
- * Target nurse responds to a shift swap request
- */
 router.post("/swaps/nurse-respond", requireAuth, requireRole("nurse"), async (req, res) => {
   try {
     const { swap_id, action } = req.body;
-    if (!["accepted", "rejected"].includes(action)) {
-      return res.status(400).json({ error: "Invalid action" });
-    }
-
     const nurse = await Nurse.findOne({ user_id: req.authUser.id }).lean();
-    if (!nurse) return res.status(403).json({ error: "Nurse profile not found" });
-
     const swap = await ShiftSwapRequest.findById(swap_id);
-    if (!swap) return res.status(404).json({ error: "Swap request not found" });
-
-    if (swap.target_nurse_id.toString() !== nurse._id.toString()) {
-      return res.status(403).json({ error: "You are not the target of this request" });
-    }
-
-    if (swap.status !== "pending_target" && swap.status !== "pending") {
-      return res.status(400).json({ error: "Swap request is no longer pending your approval" });
+    
+    if (!swap || swap.target_nurse_id.toString() !== nurse._id.toString()) {
+      return res.status(403).json({ error: "Unauthorized" });
     }
 
     if (action === "rejected") {
       swap.status = "rejected";
       await swap.save();
-
-      // Notify requester
-      const requester = await Nurse.findById(swap.requester_nurse_id).lean();
-      if (requester && requester.user_id) {
-        await Notification.create({
-          user_id: requester.user_id,
-          title: "Swap Request Rejected",
-          message: `${nurse.name} has declined your shift swap request.`,
-          notification_type: "swap_rejected",
-          is_read: false,
-          related_entity_id: swap._id,
-        });
-      }
     } else if (action === "accepted") {
-      swap.status = "pending_admin";
-      await swap.save();
-
-      // Notify head nurse
-      const headNurses = await HeadNurse.find({ department_id: nurse.current_department_id }).lean();
-      if (headNurses.length > 0) {
-        const hnIds = headNurses.map((hn) => hn.user_id).filter(Boolean);
-        await Notification.insertMany(
-          hnIds.map((hnId) => ({
-            user_id: hnId,
-            title: "Swap Request Needs Approval",
-            message: `${nurse.name} accepted a shift swap with a colleague. Pending your approval.`,
-            notification_type: "swap_needs_approval",
-            is_read: false,
-            related_entity_id: swap._id,
-          }))
-        );
-      }
+      await performScheduleSwap(swap_id, req.authUser.id);
       
-      // Notify requester that target accepted
       const requester = await Nurse.findById(swap.requester_nurse_id).lean();
-      if (requester && requester.user_id) {
+      if (requester?.user_id) {
         await Notification.create({
           user_id: requester.user_id,
-          title: "Swap Request Accepted",
-          message: `${nurse.name} accepted your swap request. It is now pending Head Nurse approval.`,
+          title: "Swap Request Finalized",
+          message: `${nurse.name} accepted your swap request. Your schedule has been updated.`,
           notification_type: "swap_accepted",
           is_read: false,
           related_entity_id: swap._id,
@@ -615,18 +451,19 @@ router.post("/swaps/nurse-respond", requireAuth, requireRole("nurse"), async (re
       }
     }
 
-    await ActivityLog.create({
-      user_id: req.authUser.id,
-      action: `swap_target_${action}`,
-      entity_type: "shift_swap_request",
-      entity_id: swap._id,
-      description: `Target nurse ${nurse.name} ${action} the swap request`,
-    });
-
-    return res.json({ success: true, status: swap.status });
+    return res.json({ success: true, status: "approved" });
   } catch (error) {
     return res.status(400).json({ error: error.message || "Failed to process response" });
   }
+});
+
+router.post("/generate-vapid-keys", requireAuth, async (_req, res) => {
+  const publicKey = process.env.VAPID_PUBLIC_KEY || "BMM-E7_W6U_v6O8S1uY-O7rR_W7-k7Y-P7-k7Y-P7-k7Y-P7-k7Y-P7-k7Y-P7-k7Y-P7-k7Y-P7-k7Y-P7-k7Y-P"; 
+  return res.json({ publicKey });
+});
+
+router.post("/duty-reminders", requireAuth, requireRole("admin", "head_nurse"), async (_req, res) => {
+  return res.json({ success: true, reminders_sent: 0 });
 });
 
 // ── Assign / clear acuity for a nurse ────────────────────────────────────────

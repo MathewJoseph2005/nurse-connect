@@ -726,10 +726,11 @@ const SwapView = ({
               } else if (h.status === "rejected") {
                 statusColor = "bg-destructive/10 text-destructive border-0";
               } else if (h.status === "pending_target") {
-                statusLabel = "Pending Target Nurse";
+                statusLabel = "Waiting for Colleague";
                 statusColor = "bg-amber-100 text-amber-700 border-0 dark:bg-amber-900/30 dark:text-amber-400";
               } else if (h.status === "pending_admin" || h.status === "pending") {
-                statusLabel = "Pending Head Nurse";
+                // Should not happen anymore, but handle legacy data
+                statusLabel = "Finalizing";
                 statusColor = "bg-blue-100 text-blue-700 border-0 dark:bg-blue-900/30 dark:text-blue-400";
               }
 

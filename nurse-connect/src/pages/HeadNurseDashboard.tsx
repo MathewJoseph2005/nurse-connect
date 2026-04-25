@@ -77,7 +77,6 @@ const HeadNurseDashboard = () => {
 
   const tabs = [
     { key: "schedule" as const, icon: Calendar, label: "Weekly Schedule" },
-    { key: "swaps" as const, icon: ArrowLeftRight, label: "Swap Requests" },
     { key: "performance" as const, icon: ClipboardCheck, label: "Performance" },
     { key: "manage" as const, icon: UserPlus, label: "Manage Nurses" },
   ];
@@ -175,7 +174,6 @@ const HeadNurseDashboard = () => {
           )}
 
           {activeTab === "schedule" && <HNScheduleView />}
-          {activeTab === "swaps" && <HNSwapView />}
           {activeTab === "performance" && <HNPerformanceView />}
           {activeTab === "manage" && <HNManageView />}
         </div>

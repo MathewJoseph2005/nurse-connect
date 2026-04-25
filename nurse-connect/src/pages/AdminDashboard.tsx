@@ -92,7 +92,6 @@ const AdminDashboard = () => {
     { key: "head_nurses" as const, icon: UserPlus, label: "Head Nurses" },
     { key: "admins" as const, icon: Shield, label: "Admins" },
     { key: "schedules" as const, icon: Calendar, label: "Schedules" },
-    { key: "swaps" as const, icon: ArrowLeftRight, label: "Swap Requests" },
     { key: "logs" as const, icon: Activity, label: "Activity Logs" },
   ];
 
@@ -174,7 +173,6 @@ const AdminDashboard = () => {
           {activeTab === "head_nurses" && <AdminHeadNurses />}
           {activeTab === "admins" && <AdminAdmins />}
           {activeTab === "schedules" && <AdminSchedules />}
-          {activeTab === "swaps" && <AdminSwaps />}
           {activeTab === "logs" && <AdminLogs />}
         </div>
       </main>
@@ -811,7 +809,7 @@ const AdminSchedules = () => {
             <h2 className="text-lg font-bold text-foreground">Schedules</h2>
             {!loading && (
               <p className="text-xs text-muted-foreground mt-0.5">
-                Week {selectedWeek} Â· {selectedYear} Â· {filtered.length} shifts Â· {totalNurses} nurses
+                Week {selectedWeek} · {selectedYear} · {filtered.length} shifts · {totalNurses} nurses
               </p>
             )}
           </div>
@@ -1042,30 +1040,12 @@ const AdminSwaps = () => {
     fetch();
   }, []);
 
-  const handleAction = async (id: string, status: "approved" | "rejected") => {
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      const apiBase = import.meta.env.VITE_API_BASE_URL || "/api";
-      const res = await fetch(`${apiBase}/functions/handle-swap`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ swap_id: id, action: status }),
-      });
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error || "Failed");
-      toast({ title: `Swap ${status}` });
-      setSwaps((prev) => prev.map((s) => (s.id === id ? { ...s, status } : s)));
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    }
-  };
-
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   return (
     <div className="animate-fade-in space-y-4">
       <h2 className="text-lg font-bold text-foreground">All Swap Requests</h2>
+      <p className="text-sm text-muted-foreground">Swap requests are automatically approved after mutual agreement.</p>
       {swaps.length === 0 ? (
         <div className="rounded-xl bg-card p-12 text-center shadow-card">
           <ArrowLeftRight className="mx-auto h-10 w-10 text-muted-foreground/30" />
@@ -1098,22 +1078,15 @@ const AdminSwaps = () => {
                 <p className="mt-2 text-[10px] text-muted-foreground italic">Requested {formatTimeAgo(s.created_at)}</p>
               </div>
               <div className="flex items-center gap-2">
-                {s.status === "pending_admin" || s.status === "pending" ? (
-                  <>
-                    <Button variant="hero" size="sm" onClick={() => handleAction(s.id, "approved")}><Check size={14} className="mr-1" /> Approve</Button>
-                    <Button variant="outline" size="sm" onClick={() => handleAction(s.id, "rejected")}><XCircle size={14} className="mr-1" /> Reject</Button>
-                  </>
-                ) : (
-                  <Badge 
-                    className={
-                      s.status === "approved" ? "bg-primary/10 text-primary border-0" : 
-                      s.status === "rejected" ? "bg-destructive/10 text-destructive border-0" :
-                      "bg-amber-100 text-amber-700 border-0 dark:bg-amber-900/30 dark:text-amber-400"
-                    }
-                  >
-                    {s.status === "pending_target" ? "Pending Target Nurse" : s.status.charAt(0).toUpperCase() + s.status.slice(1)}
-                  </Badge>
-                )}
+                <Badge 
+                  className={
+                    s.status === "approved" ? "bg-primary/10 text-primary border-0" : 
+                    s.status === "rejected" ? "bg-destructive/10 text-destructive border-0" :
+                    "bg-amber-100 text-amber-700 border-0 dark:bg-amber-900/30 dark:text-amber-400"
+                  }
+                >
+                  {s.status === "pending_target" ? "Pending Mutual Agreement" : s.status.charAt(0).toUpperCase() + s.status.slice(1)}
+                </Badge>
               </div>
             </div>
           ))}

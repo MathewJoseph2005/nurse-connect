@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: nurse-connect
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGODB_URI
+        sync: false
+        placeholder: "Your MongoDB Connection String"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        sync: false
+        placeholder: "Your App URL (e.g., https://nurse-connect.onrender.com)"
+      - key: VITE_API_BASE_URL
+        value: "/api"
+    disk:
+      name: uploads-storage
+      mountPath: /opt/render/project/src/backend/uploads
+      sizeGB: 1

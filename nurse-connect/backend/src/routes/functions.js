@@ -46,7 +46,7 @@ function getISOWeek(date) {
 
 router.post("/create-user", requireAuth, requireRole("admin"), async (req, res) => {
   try {
-    const { email, password, confirmPassword, role, name, username, department_id } = req.body;
+    const { email, password, confirmPassword, role, name, username, department_id, division_id } = req.body;
     const normalizedEmail = normalizeEmail(email);
     const normalizedName = String(name || "").trim();
     const normalizedUsername = String(username || "").trim();
@@ -91,7 +91,7 @@ router.post("/create-user", requireAuth, requireRole("admin"), async (req, res) 
 
     await UserRole.create({ user_id: user._id, role });
     if (role === "head_nurse") {
-      await HeadNurse.create({ user_id: user._id, name: normalizedName, username: normalizedUsername, department_id: department_id || null });
+      await HeadNurse.create({ user_id: user._id, name: normalizedName, username: normalizedUsername, department_id: department_id || null, division_id: division_id || null });
     }
     if (role === "admin") {
       await Admin.create({ user_id: user._id, name: normalizedName, username: normalizedUsername });

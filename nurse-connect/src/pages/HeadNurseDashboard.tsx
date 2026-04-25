@@ -153,19 +153,6 @@ const HeadNurseDashboard = () => {
                     <User size={16} />
                     <span>View Profile</span>
                   </button>
-
-                  <div className="border-t my-1"></div>
-
-                  <button
-                    onClick={() => {
-                      handleSignOut();
-                      setProfileMenuOpen(false);
-                    }}
-                    className="flex w-full items-center gap-3 px-4 py-2 text-sm text-destructive hover:bg-accent transition-colors"
-                  >
-                    <LogOut size={16} />
-                    <span>Sign Out</span>
-                  </button>
                 </div>
               </div>
             )}
@@ -197,7 +184,7 @@ const HeadNurseDashboard = () => {
   );
 };
 
-// â”€â”€â”€ Schedule View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Schedule View ----------------------------------------------
 
 interface ScheduleRow {
   id: string;
@@ -216,11 +203,11 @@ const ACUITY_COLORS: Record<string, string> = {
 };
 
 const SHIFT_LABELS: Record<string, string> = {
-  day:     "Day Shift (6AM â€“ 6PM)",
-  night:   "Night Shift (6PM â€“ 6AM)",
+  day:     "Day Shift (6AM - 6PM)",
+  night:   "Night Shift (6PM - 6AM)",
   // legacy labels for any old seeded data
-  morning: "Morning (6AM â€“ 2PM)",
-  evening: "Evening (2PM â€“ 10PM)",
+  morning: "Morning (6AM - 2PM)",
+  evening: "Evening (2PM - 10PM)",
 };
 
 const HNScheduleView = () => {
@@ -500,7 +487,7 @@ const HNScheduleView = () => {
   );
 };
 
-// â”€â”€â”€ Swap View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Swap View --------------------------------------------------
 
 const HNSwapView = () => {
   const [swaps, setSwaps] = useState<any[]>([]);
@@ -564,11 +551,11 @@ const HNSwapView = () => {
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="space-y-2">
                 <p className="text-sm font-bold text-foreground">
-                  {r.requester?.name || "Unknown"} â†” {r.target?.name || "Unknown"}
+                  {r.requester?.name || "Unknown"} {" <-> "} {r.target?.name || "Unknown"}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {r.requester_schedule?.shift_type} â€” {r.requester_schedule?.department?.name} âŸ·{" "}
-                  {r.target_schedule?.shift_type} â€” {r.target_schedule?.department?.name}
+                  {r.requester_schedule?.shift_type} - {r.requester_schedule?.department?.name} {" -> "}
+                  {r.target_schedule?.shift_type} - {r.target_schedule?.department?.name}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   Date: {r.requester_schedule?.duty_date}
@@ -590,7 +577,7 @@ const HNSwapView = () => {
   );
 };
 
-// â”€â”€â”€ Performance View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Performance View -------------------------------------------
 
 const HNPerformanceView = () => {
   const { user } = useAuth();
@@ -626,7 +613,7 @@ const HNPerformanceView = () => {
       const [nursesRes, evalsRes] = await Promise.all([
         supabase
           .from("nurses")
-          .select("id, name, division_id, current_department_id, experience_years, divisions:divisions(name), departments:departments(name)")
+          .select("id, name, photo_url, division_id, current_department_id, experience_years, divisions:divisions(name), departments:departments(name)")
           .eq("is_active", true)
           .eq("current_department_id", deptId),
         supabase
@@ -737,9 +724,14 @@ const HNPerformanceView = () => {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-                      {n.name.split(" ").map((w: string) => w[0]).join("")}
-                    </div>
+                      <Avatar className="h-10 w-10">
+                        {n.photo_url ? (
+                          <AvatarImage src={n.photo_url} alt={n.name} className="object-cover" />
+                        ) : null}
+                        <AvatarFallback className="bg-primary/10 text-sm font-bold text-primary">
+                          {n.name.split(" ").map((w: string) => w[0]).join("")}
+                        </AvatarFallback>
+                      </Avatar>
                     <div>
                       <p className="text-sm font-bold text-foreground">{n.name}</p>
                       <p className="text-xs text-muted-foreground">
@@ -761,9 +753,9 @@ const HNPerformanceView = () => {
                       <div className="h-2 rounded-full bg-primary" style={{ width: `${score}%` }} />
                     </div>
                     <div className="mt-3 flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
-                      <span>Attendance: {attendanceScore ?? "â€”"}%</span>
-                      <span>Quality: {qualityScore ?? "â€”"}%</span>
-                      <span>Reliability: {reliabilityScore ?? "â€”"}%</span>
+                      <span>Attendance: {attendanceScore ?? "-"}%</span>
+                      <span>Quality: {qualityScore ?? "-"}%</span>
+                      <span>Reliability: {reliabilityScore ?? "-"}%</span>
                     </div>
                     {ev?.remarks && (
                       <p className="mt-2 text-xs text-muted-foreground italic truncate">"{ev.remarks}"</p>
@@ -774,7 +766,7 @@ const HNPerformanceView = () => {
                 )}
                 <div className="mt-2 text-xs text-muted-foreground">
                   Experience: {n.experience_years || 0} yrs
-                  {ev?.evaluation_period && <span> â€¢ Period: {ev.evaluation_period}</span>}
+                  {ev?.evaluation_period && <span> • Period: {ev.evaluation_period}</span>}
                 </div>
               </div>
             );
@@ -819,7 +811,7 @@ const HNPerformanceView = () => {
   );
 };
 
-// â”€â”€â”€ Manage Nurses View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Manage Nurses View -----------------------------------------
 
 const HNManageView = () => {
   const { user } = useAuth();
@@ -843,14 +835,14 @@ const HNManageView = () => {
   const [newExperience, setNewExperience] = useState("");
   const [newExamScore, setNewExamScore] = useState("");
 
-  // Step 1 â€” resolve HN's department, then step 2 â€” fetch scoped nurses
+  // Step 1 - resolve HN's department, then step 2 - fetch scoped nurses
   const fetchData = useCallback(async (deptId: string) => {
     const [nursesRes, divsRes] = await Promise.all([
       supabase
         .from("nurses")
         .select("id, name, phone, age, gender, experience_years, exam_score_percentage, division_id, current_department_id, is_active, divisions:divisions(id, name, acuity_level), departments:departments(name)")
         .eq("is_active", true)
-        .eq("current_department_id", deptId),   // â† scoped to THIS department only
+        .eq("current_department_id", deptId),   // <- scoped to THIS department only
       supabase.from("divisions").select("id, name, acuity_level").order("acuity_level"),
     ]);
     setNurses(nursesRes.data || []);
@@ -898,7 +890,7 @@ const HNManageView = () => {
       age: newAge ? parseInt(newAge) : null,
       gender: newGender as any || null,
       division_id: newDivisionId || null,
-      current_department_id: myDeptId,          // â† always assigned to HN's own dept
+      current_department_id: myDeptId,          // <- always assigned to HN's own dept
       experience_years: newExperience ? parseInt(newExperience) : 0,
       exam_score_percentage: newExamScore ? parseFloat(newExamScore) : null,
     });
@@ -1115,7 +1107,7 @@ const HNManageView = () => {
                       ))}
                     </select>
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">{n.departments?.name || "â€”"}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{n.departments?.name || "-"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{n.phone}</td>
                   <td className="px-4 py-3 text-muted-foreground">{n.experience_years || 0} yrs</td>
                   <td className="px-4 py-3">

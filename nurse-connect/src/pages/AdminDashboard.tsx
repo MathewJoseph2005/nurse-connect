@@ -18,10 +18,10 @@ import logo from "@/assets/logo.svg";
 type Tab = "overview" | "nurses" | "head_nurses" | "admins" | "schedules" | "swaps" | "logs";
 
 const SHIFT_LABELS: Record<string, string> = {
-  day:     "Day Shift (6AM â€“ 6PM)",
-  night:   "Night Shift (6PM â€“ 6AM)",
-  morning: "Morning (6AM â€“ 2PM)",
-  evening: "Evening (2PM â€“ 10PM)",
+  day:     "Day Shift (6AM - 6PM)",
+  night:   "Night Shift (6PM - 6AM)",
+  morning: "Morning (6AM - 2PM)",
+  evening: "Evening (2PM - 10PM)",
 };
 
 function getISOWeek(date: Date): number {
@@ -159,19 +159,6 @@ const AdminDashboard = () => {
                     <User size={16} />
                     <span>View Profile</span>
                   </button>
-
-                  <div className="border-t my-1"></div>
-
-                  <button
-                    onClick={() => {
-                      handleSignOut();
-                      setProfileMenuOpen(false);
-                    }}
-                    className="flex w-full items-center gap-3 px-4 py-2 text-sm text-destructive hover:bg-accent transition-colors"
-                  >
-                    <LogOut size={16} />
-                    <span>Sign Out</span>
-                  </button>
                 </div>
               </div>
             )}
@@ -192,7 +179,7 @@ const AdminDashboard = () => {
   );
 };
 
-// â”€â”€â”€ Overview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Overview ---------------------------------------------------
 
 const AdminOverview = () => {
   const [stats, setStats] = useState({ nurses: 0, shifts: 0, pendingSwaps: 0, departments: 0 });
@@ -299,25 +286,32 @@ const AdminOverview = () => {
   );
 };
 
-// â”€â”€â”€ Head Nurses â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Head Nurses ------------------------------------------------
 
 const AdminHeadNurses = () => {
   const [headNurses, setHeadNurses] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
+  const [divisions, setDivisions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ name: "", username: "", password: "", confirmPassword: "", department_id: "" });
+  const [form, setForm] = useState({ name: "", username: "", password: "", confirmPassword: "", department_id: "", division_id: "" });
   const navigate = useNavigate();
+  const [expandedDepts, setExpandedDepts] = useState<Set<string>>(new Set());
 
   const fetchData = async () => {
     setLoading(true);
-    const [hnRes, deptRes] = await Promise.all([
-      supabase.from("head_nurses").select("id, name, username, department_id, departments:departments(name), created_at"),
+    const [hnRes, deptRes, divRes] = await Promise.all([
+      supabase.from("head_nurses").select("id, name, username, department_id, division_id, departments:departments(name), divisions:divisions(name), created_at"),
       supabase.from("departments").select("id, name").order("name"),
+      supabase.from("divisions").select("id, name").order("name"),
     ]);
     setHeadNurses(hnRes.data || []);
     setDepartments(deptRes.data || []);
+    setDivisions(divRes.data || []);
+    const loadedHn = hnRes.data || [];
+    setHeadNurses(loadedHn);
+    setExpandedDepts(new Set(loadedHn.map((r: any) => r.departments?.name || "Unassigned")));
     setLoading(false);
   };
 
@@ -353,12 +347,13 @@ const AdminHeadNurses = () => {
           name: form.name,
           username: form.username,
           department_id: form.department_id || null,
+          division_id: form.division_id || null,
         }),
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || "Failed to create head nurse");
       toast({ title: "Head Nurse Created", description: `${form.name} can now log in with username "${form.username}".` });
-      setForm({ name: "", username: "", password: "", confirmPassword: "", department_id: "" });
+      setForm({ name: "", username: "", password: "", confirmPassword: "", department_id: "", division_id: "" });
       setShowForm(false);
       await fetchData();
     } catch (err: any) {
@@ -369,6 +364,24 @@ const AdminHeadNurses = () => {
   };
 
   if (loading) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+
+  const toggleDept = (name: string) => {
+    setExpandedDepts((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
+
+  const groupedHeadNurses = headNurses.reduce((acc: Record<string, any[]>, hn) => {
+    const key = hn.departments?.name || "Unassigned";
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(hn);
+    return acc;
+  }, {});
+
+  const hnDeptNames = Object.keys(groupedHeadNurses).sort();
 
   return (
     <div className="animate-fade-in space-y-4">
@@ -415,6 +428,17 @@ const AdminHeadNurses = () => {
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Acuity (Division)</label>
+              <Select value={form.division_id} onValueChange={(v) => setForm({ ...form, division_id: v })}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Select Acuity" /></SelectTrigger>
+                <SelectContent>
+                  {divisions.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="flex gap-2">
             <Button variant="hero" size="sm" onClick={handleCreate} disabled={creating}>
@@ -432,45 +456,96 @@ const AdminHeadNurses = () => {
           <p className="mt-4 text-sm text-muted-foreground">No head nurses yet. Click "Add Head Nurse" to create one.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl bg-card shadow-card">
-          <table className="w-full text-sm">
-            <thead><tr className="border-b bg-muted/50">
-              <th className="px-4 py-3 text-left font-semibold text-foreground">Name</th>
-              <th className="px-4 py-3 text-left font-semibold text-foreground">Username</th>
-              <th className="px-4 py-3 text-left font-semibold text-foreground">Department</th>
-              <th className="px-4 py-3 text-left font-semibold text-foreground">Created</th>
-            </tr></thead>
-            <tbody className="divide-y">
-              {headNurses.map((hn) => (
-                <tr key={hn.id} className="hover:bg-muted/30">
-                  <td className="px-4 py-3 font-medium text-foreground">{hn.name}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{hn.username}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{hn.departments?.name || "â€”"}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{new Date(hn.created_at).toLocaleDateString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="space-y-3">
+          {hnDeptNames.map((dept) => (
+            <div key={dept} className="rounded-xl bg-card shadow-card overflow-hidden">
+              <button
+                onClick={() => toggleDept(dept)}
+                className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/30 transition-colors border-b"
+              >
+                <div className="flex items-center gap-3">
+                  <ChevronDown
+                    size={18}
+                    className={`text-primary transition-transform ${expandedDepts.has(dept) ? "rotate-180" : ""}`}
+                  />
+                  <div className="text-left">
+                    <p className="font-semibold text-foreground">{dept}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {groupedHeadNurses[dept].length} Head Nurse{groupedHeadNurses[dept].length !== 1 ? "s" : ""}
+                    </p>
+                  </div>
+                </div>
+                <Badge variant="secondary">{groupedHeadNurses[dept].length}</Badge>
+              </button>
+
+              {expandedDepts.has(dept) && (
+                <div className="overflow-x-auto bg-muted/10">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/30">
+                        <th className="px-4 py-3 text-left font-semibold text-foreground">Name</th>
+                        <th className="px-4 py-3 text-left font-semibold text-foreground">Username</th>
+                        <th className="px-4 py-3 text-left font-semibold text-foreground">Acuity</th>
+                        <th className="px-4 py-3 text-left font-semibold text-foreground">Created</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/50">
+                      {groupedHeadNurses[dept].map((hn) => (
+                        <tr key={hn.id} className="hover:bg-muted/50 transition-colors">
+                          <td className="px-4 py-3 font-medium text-foreground">{hn.name}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{hn.username}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{hn.divisions?.name || "-"}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{new Date(hn.created_at).toLocaleDateString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>
   );
 };
 
-// â”€â”€â”€ Nurses â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Nurses -----------------------------------------------------
 
 const AdminNurses = () => {
   const [nurses, setNurses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [expandedDepts, setExpandedDepts] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const fetch = async () => {
-      const { data } = await supabase
-        .from("nurses")
-        .select("id, name, phone, is_active, divisions:divisions(name), departments:departments(name)")
-        .order("name");
-      setNurses(data || []);
+      const [nursesRes, headNursesRes] = await Promise.all([
+        supabase
+          .from("nurses")
+          .select("id, name, phone, is_active, divisions:divisions(name), departments:departments(name)")
+          .order("name"),
+        supabase
+          .from("head_nurses")
+          .select("id, name, username, departments:departments(name), divisions:divisions(name)")
+          .order("name")
+      ]);
+
+      const nursesData = (nursesRes.data || []).map(n => ({ ...n, role: 'nurse' }));
+      const headNursesData = (headNursesRes.data || []).map(hn => ({
+        id: hn.id,
+        name: hn.name,
+        phone: hn.username,
+        is_active: true,
+        divisions: hn.divisions,
+        departments: hn.departments,
+        role: 'head_nurse'
+      }));
+
+      const combined = [...headNursesData, ...nursesData].sort((a, b) => a.name.localeCompare(b.name));
+      
+      setNurses(combined);
+      setExpandedDepts(new Set(combined.map((r: any) => r.departments?.name || "Unassigned")));
       setLoading(false);
     };
     fetch();
@@ -482,6 +557,24 @@ const AdminNurses = () => {
     const q = search.toLowerCase();
     return n.name.toLowerCase().includes(q) || (n.divisions?.name || "").toLowerCase().includes(q) || (n.departments?.name || "").toLowerCase().includes(q);
   });
+
+  const toggleDept = (name: string) => {
+    setExpandedDepts((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
+
+  const groupedNurses = filtered.reduce((acc: Record<string, any[]>, n) => {
+    const key = n.departments?.name || "Unassigned";
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(n);
+    return acc;
+  }, {});
+
+  const nurseDeptNames = Object.keys(groupedNurses).sort();
 
   return (
     <div className="animate-fade-in space-y-4">
@@ -498,38 +591,70 @@ const AdminNurses = () => {
           <p className="mt-4 text-sm text-muted-foreground">No nurses found.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl bg-card shadow-card">
-          <table className="w-full text-sm">
-            <thead><tr className="border-b bg-muted/50">
-              <th className="px-4 py-3 text-left font-semibold text-foreground">Name</th>
-              <th className="px-4 py-3 text-left font-semibold text-foreground">Division</th>
-              <th className="px-4 py-3 text-left font-semibold text-foreground">Department</th>
-              <th className="px-4 py-3 text-left font-semibold text-foreground">Phone</th>
-              <th className="px-4 py-3 text-left font-semibold text-foreground">Status</th>
-            </tr></thead>
-            <tbody className="divide-y">
-              {filtered.map((n) => (
-                <tr key={n.id} className="hover:bg-muted/30">
-                  <td className="px-4 py-3 font-medium text-foreground">{n.name}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{n.divisions?.name || "â€”"}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{n.departments?.name || "â€”"}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{n.phone}</td>
-                  <td className="px-4 py-3">
-                    <Badge className={n.is_active ? "bg-primary/10 text-primary border-0" : "bg-destructive/10 text-destructive border-0"}>
-                      {n.is_active ? "Active" : "Inactive"}
-                    </Badge>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="space-y-3">
+          {nurseDeptNames.map((dept) => (
+            <div key={dept} className="rounded-xl bg-card shadow-card overflow-hidden">
+              <button
+                onClick={() => toggleDept(dept)}
+                className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/30 transition-colors border-b"
+              >
+                <div className="flex items-center gap-3">
+                  <ChevronDown
+                    size={18}
+                    className={`text-primary transition-transform ${expandedDepts.has(dept) ? "rotate-180" : ""}`}
+                  />
+                  <div className="text-left">
+                    <p className="font-semibold text-foreground">{dept}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {groupedNurses[dept].length} Nurse{groupedNurses[dept].length !== 1 ? "s" : ""}
+                    </p>
+                  </div>
+                </div>
+                <Badge variant="secondary">{groupedNurses[dept].length}</Badge>
+              </button>
+
+              {expandedDepts.has(dept) && (
+                <div className="overflow-x-auto bg-muted/10">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/30">
+                        <th className="px-4 py-3 text-left font-semibold text-foreground">Name</th>
+                        <th className="px-4 py-3 text-left font-semibold text-foreground">Division</th>
+                        <th className="px-4 py-3 text-left font-semibold text-foreground">Phone</th>
+                        <th className="px-4 py-3 text-left font-semibold text-foreground">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/50">
+                      {groupedNurses[dept].map((n) => (
+                        <tr key={n.id} className={`transition-colors ${n.role === 'head_nurse' ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/50'}`}>
+                          <td className="px-4 py-3 font-medium text-foreground">
+                            {n.name}
+                            {n.role === 'head_nurse' && (
+                              <Badge variant="hero" className="ml-2 text-[10px] h-4 px-1.5 py-0">Head Nurse</Badge>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">{n.divisions?.name || "-"}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{n.phone}</td>
+                          <td className="px-4 py-3">
+                            <Badge className={n.is_active ? "bg-primary/10 text-primary border-0" : "bg-destructive/10 text-destructive border-0"}>
+                              {n.is_active ? "Active" : "Inactive"}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>
   );
 };
 
-// â”€â”€â”€ Schedules â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Schedules --------------------------------------------------
 
 const SHIFT_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
   day:     { bg: "bg-amber-50 border-amber-200",   text: "text-amber-700",  dot: "bg-amber-400" },
@@ -598,7 +723,7 @@ const AdminSchedules = () => {
     return matchesSearch && matchesDept && matchesShift;
   });
 
-  // Group by department â†’ date â†’ shift
+  // Group by department -> date -> shift
   const grouped = filtered.reduce((acc: Record<string, any[]>, s) => {
     const key = s.department?.name || "Unknown";
     if (!acc[key]) acc[key] = [];
@@ -612,7 +737,7 @@ const AdminSchedules = () => {
   return (
     <div className="space-y-5 animate-fade-in">
 
-      {/* â”€â”€ Header + Filter Bar â”€â”€ */}
+      {/* -- Header + Filter Bar -- */}
       <div className="rounded-xl bg-card shadow-card p-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -671,8 +796,8 @@ const AdminSchedules = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Shifts</SelectItem>
-              <SelectItem value="day">Day Shift (6AM â€“ 6PM)</SelectItem>
-              <SelectItem value="night">Night Shift (6PM â€“ 6AM)</SelectItem>
+              <SelectItem value="day">Day Shift (6AM - 6PM)</SelectItem>
+              <SelectItem value="night">Night Shift (6PM - 6AM)</SelectItem>
             </SelectContent>
           </Select>
 
@@ -680,7 +805,7 @@ const AdminSchedules = () => {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search nurseâ€¦"
+              placeholder="Search nurse..."
               className="pl-9 h-9 w-44"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -689,7 +814,7 @@ const AdminSchedules = () => {
         </div>
       </div>
 
-      {/* â”€â”€ Content â”€â”€ */}
+      {/* -- Content -- */}
       {loading ? (
         <div className="flex justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -825,7 +950,7 @@ const AdminSchedules = () => {
   );
 };
 
-// â”€â”€â”€ Swaps â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Swaps ------------------------------------------------------
 
 const AdminSwaps = () => {
   const [swaps, setSwaps] = useState<any[]>([]);
@@ -884,10 +1009,10 @@ const AdminSwaps = () => {
           {swaps.map((s) => (
             <div key={s.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-card p-4 shadow-card">
               <div>
-                <p className="text-sm font-medium text-foreground">{s.requester?.name || "?"} â†” {s.target?.name || "?"}</p>
+                <p className="text-sm font-medium text-foreground">{s.requester?.name || "?"} {" <-> "} {s.target?.name || "?"}</p>
                 <p className="text-xs text-muted-foreground">
-                  {s.requester_schedule?.shift_type} â€” {s.requester_schedule?.department?.name} âŸ· {s.target_schedule?.shift_type} â€” {s.target_schedule?.department?.name}
-                  {" â€¢ "}{formatTimeAgo(s.created_at)}
+                  {s.requester_schedule?.shift_type} - {s.requester_schedule?.department?.name} {" -> "} {s.target_schedule?.shift_type} - {s.target_schedule?.department?.name}
+                  {" • "}{formatTimeAgo(s.created_at)}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -916,7 +1041,7 @@ const AdminSwaps = () => {
   );
 };
 
-// â”€â”€â”€ Logs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Logs -------------------------------------------------------
 
 const AdminLogs = () => {
   const [logs, setLogs] = useState<any[]>([]);
@@ -964,7 +1089,7 @@ const AdminLogs = () => {
   );
 };
 
-// â”€â”€â”€ Admins â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Admins -----------------------------------------------------
 
 const AdminAdmins = () => {
   const [admins, setAdmins] = useState<any[]>([]);

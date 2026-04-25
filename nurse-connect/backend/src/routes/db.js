@@ -42,7 +42,10 @@ const populateMap = {
     { path: "division_id", select: "name acuity_level", model: "Division" },
     { path: "current_department_id", select: "name", model: "Department" },
   ],
-  head_nurses: [{ path: "department_id", select: "name", model: "Department" }],
+  head_nurses: [
+    { path: "department_id", select: "name", model: "Department" },
+    { path: "division_id", select: "name acuity_level", model: "Division" }
+  ],
   schedules: [
     { path: "nurse_id", select: "name division_id", model: "Nurse" },
     { path: "department_id", select: "name", model: "Department" },
@@ -127,6 +130,20 @@ function shapeRow(table, row) {
     base.departments = row.current_department_id ? { name: row.current_department_id.name } : null;
   }
   if (table === "head_nurses") {
+    if (row.division_id && typeof row.division_id === "object" && row.division_id._id) {
+      base.divisions = {
+        id: row.division_id._id.toString(),
+        name: row.division_id.name,
+        acuity_level: row.division_id.acuity_level ?? null,
+      };
+      base.division_id = row.division_id._id.toString();
+    } else if (row.division_id) {
+      base.divisions = null;
+      base.division_id = row.division_id.toString();
+    } else {
+      base.divisions = null;
+      base.division_id = null;
+    }
     base.departments = row.department_id ? { name: row.department_id.name } : null;
   }
   if (table === "schedules") {

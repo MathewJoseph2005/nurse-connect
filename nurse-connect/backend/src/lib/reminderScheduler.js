@@ -25,20 +25,11 @@ import { Nurse }        from "../models/Nurse.js";
 import { Notification } from "../models/Notification.js";
 import { ReminderLog }  from "../models/ReminderLog.js";
 
-// ─── Config ───────────────────────────────────────────────────────────────────
-
-/** Local hour (0-23) at which to send the day-before reminder */
-const DAY_BEFORE_HOUR   = 20;   // 8 PM
-const DAY_BEFORE_MINUTE = 0;
-
 /** Shift start times (local hour, minute) */
 const SHIFT_START = {
   day:   { hour: 6,  minute: 0 },
   night: { hour: 18, minute: 0 },
 };
-
-/** How many minutes before shift start to send the "30 min" reminder */
-const PRE_SHIFT_MINUTES = 30;
 
 /** Tick interval in ms (1 minute) */
 const TICK_MS = 60_000;
@@ -116,69 +107,47 @@ async function sendNotification(userId, title, message, notificationType, schedu
 
 async function tick() {
   const now = localNow();
-  const { year, month, day, hour, minute } = toLocalParts(now);
+  const { year, month, day } = toLocalParts(now);
 
-  // Build today's ISO date string
   const todayISO = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  const tomorrowDt = new Date(year, month, day + 1);
+  const tomorrowISO = `${tomorrowDt.getFullYear()}-${String(tomorrowDt.getMonth() + 1).padStart(2, "0")}-${String(tomorrowDt.getDate()).padStart(2, "0")}`;
 
-  // Build tomorrow's ISO date string
-  const tomorrow = new Date(year, month, day + 1);
-  const tomorrowISO = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
+  const upcomingSchedules = await Schedule.find({ duty_date: { $in: [todayISO, tomorrowISO] } })
+    .populate({ path: "nurse_id", select: "name user_id", model: "Nurse" })
+    .lean();
 
-  // ── 1. Day-before reminders (fired at DAY_BEFORE_HOUR:DAY_BEFORE_MINUTE) ──
-  const dayBeforeTarget = new Date(year, month, day, DAY_BEFORE_HOUR, DAY_BEFORE_MINUTE, 0, 0);
-  if (withinWindow(now, dayBeforeTarget)) {
-    // Find all schedules for tomorrow where the nurse has a user account
-    const tomorrowSchedules = await Schedule.find({ duty_date: tomorrowISO })
-      .populate({ path: "nurse_id", select: "name user_id", model: "Nurse" })
-      .lean();
+  for (const sched of upcomingSchedules) {
+    const nurse = sched.nurse_id;
+    if (!nurse?.user_id) continue;
 
-    for (const sched of tomorrowSchedules) {
-      const nurse = sched.nurse_id;
-      if (!nurse?.user_id) continue;
+    const start = SHIFT_START[sched.shift_type];
+    if (!start) continue;
 
-      const claimed = await claimReminder(sched._id, "day_before");
-      if (!claimed) continue;
+    // Build the exact start Date for this shift
+    const [sy, sm, sd] = sched.duty_date.split("-").map(Number);
+    const shiftStartDt = new Date(sy, sm - 1, sd, start.hour, start.minute, 0, 0);
 
-      await sendNotification(
-        nurse.user_id,
-        "⏰ Shift Reminder — Tomorrow",
-        `Hi ${nurse.name}, you have a ${shiftLabel(sched.shift_type)} scheduled tomorrow (${tomorrowISO}). Please be ready on time!`,
-        "duty_reminder_day_before",
-        sched._id
-      );
-    }
-  }
+    const intervals = [
+      { id: "twelve_hours", mins: 12 * 60, title: "⏰ Upcoming Shift (12h)", msg: `Hi ${nurse.name}, you have a ${shiftLabel(sched.shift_type)} starting in 12 hours.` },
+      { id: "three_hours", mins: 3 * 60, title: "⏰ Upcoming Shift (3h)", msg: `Hi ${nurse.name}, your ${shiftLabel(sched.shift_type)} starts in exactly 3 hours.` },
+      { id: "at_start", mins: 0, title: "🏥 Shift Started", msg: `${nurse.name}, your ${shiftLabel(sched.shift_type)} has just started.` }
+    ];
 
-  // ── 2. 30-minute pre-shift reminders ──────────────────────────────────────
-  for (const [shiftType, { hour: startHour, minute: startMinute }] of Object.entries(SHIFT_START)) {
-    // Calculate the reminder fire time = shift start − PRE_SHIFT_MINUTES
-    const fireMinuteOfDay = startHour * 60 + startMinute - PRE_SHIFT_MINUTES;
-    const fireHour   = Math.floor(fireMinuteOfDay / 60);
-    const fireMinute = fireMinuteOfDay % 60;
+    for (const interval of intervals) {
+      const targetDt = new Date(shiftStartDt.getTime() - interval.mins * 60000);
+      if (withinWindow(now, targetDt)) {
+        const claimed = await claimReminder(sched._id, interval.id);
+        if (!claimed) continue;
 
-    const preShiftTarget = new Date(year, month, day, fireHour, fireMinute, 0, 0);
-    if (!withinWindow(now, preShiftTarget)) continue;
-
-    // Find today's schedules for this shift type where nurse has a user account
-    const todaySchedules = await Schedule.find({ duty_date: todayISO, shift_type: shiftType })
-      .populate({ path: "nurse_id", select: "name user_id", model: "Nurse" })
-      .lean();
-
-    for (const sched of todaySchedules) {
-      const nurse = sched.nurse_id;
-      if (!nurse?.user_id) continue;
-
-      const claimed = await claimReminder(sched._id, "thirty_min");
-      if (!claimed) continue;
-
-      await sendNotification(
-        nurse.user_id,
-        "🏥 Your Shift Starts in 30 Minutes!",
-        `${nurse.name}, your ${shiftLabel(sched.shift_type)} starts at ${startHour.toString().padStart(2,"0")}:${startMinute.toString().padStart(2,"0")}. Please head to your station now.`,
-        "duty_reminder_30min",
-        sched._id
-      );
+        await sendNotification(
+          nurse.user_id,
+          interval.title,
+          interval.msg,
+          `duty_reminder_${interval.id}`,
+          sched._id
+        );
+      }
     }
   }
 }
@@ -191,9 +160,7 @@ async function tick() {
  */
 export function startReminderScheduler() {
   console.log("⏱  Duty reminder scheduler started (ticking every 60 s)");
-  console.log(`   Day-before reminders  → ${DAY_BEFORE_HOUR}:${String(DAY_BEFORE_MINUTE).padStart(2,"0")} local`);
-  console.log(`   Day-shift 30-min      → 05:30 local`);
-  console.log(`   Night-shift 30-min    → 17:30 local`);
+  console.log(`   Reminders config     → 12h before, 3h before, exactly at start`);
 
   // Run once immediately on start (catches missed window if server was just restarted)
   tick().catch((err) => console.error("[ReminderScheduler] tick error:", err.message));

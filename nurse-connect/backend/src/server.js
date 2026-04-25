@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
+import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import authRoutes from "./routes/auth.js";
@@ -32,6 +33,17 @@ app.use("/api/db", dbRoutes);
 app.use("/api/functions", functionRoutes);
 app.use("/api/storage", storageRoutes);
 app.use("/api/notifications", notificationRoutes);
+
+// Serve frontend build when available (single-service deployment on Render).
+const frontendDistPath = path.resolve(__dirname, "../../dist");
+const frontendIndexPath = path.join(frontendDistPath, "index.html");
+
+if (fs.existsSync(frontendIndexPath)) {
+  app.use(express.static(frontendDistPath));
+  app.get(/^(?!\/api|\/uploads|\/health).*/, (_req, res) => {
+    res.sendFile(frontendIndexPath);
+  });
+}
 
 async function connectMongo() {
   const primaryUri = process.env.MONGODB_URI;

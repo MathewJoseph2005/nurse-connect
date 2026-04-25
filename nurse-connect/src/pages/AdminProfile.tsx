@@ -172,13 +172,13 @@ const AdminProfile = () => {
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Email</label>
-                <p className="text-base text-foreground font-medium">{profile.email || "â€”"}</p>
+                <p className="text-base text-foreground font-medium">{profile.email || "-"}</p>
                 <div className="border-b mt-2"></div>
               </div>
 
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Phone</label>
-                <p className="text-base text-foreground font-medium">{profile.phone || "â€”"}</p>
+                <p className="text-base text-foreground font-medium">{profile.phone || "-"}</p>
                 <div className="border-b mt-2"></div>
               </div>
             </div>

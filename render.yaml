@@ -21,7 +21,4 @@ services:
         placeholder: "Your App URL (e.g., https://nurse-connect.onrender.com)"
       - key: VITE_API_BASE_URL
         value: "/api"
-    disk:
-      name: uploads-storage
-      mountPath: /opt/render/project/src/nurse-connect/backend/uploads
-      sizeGB: 1
+

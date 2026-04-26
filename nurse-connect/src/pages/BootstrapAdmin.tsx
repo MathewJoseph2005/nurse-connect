@@ -59,7 +59,7 @@ const BootstrapAdmin = () => {
     }
 
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
       const res = await fetch(`${API_BASE}/auth/bootstrap-admin`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

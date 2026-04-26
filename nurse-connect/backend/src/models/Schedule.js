@@ -4,6 +4,7 @@ const scheduleSchema = new mongoose.Schema(
   {
     nurse_id: { type: mongoose.Schema.Types.ObjectId, ref: "Nurse", required: true },
     department_id: { type: mongoose.Schema.Types.ObjectId, ref: "Department", required: true },
+    ward_id: { type: mongoose.Schema.Types.ObjectId, ref: "Ward", default: null },
     shift_type: { type: String, enum: ["day", "night", "morning", "evening"], required: true },
     duty_date: { type: String, required: true },
     week_number: { type: Number, required: true },

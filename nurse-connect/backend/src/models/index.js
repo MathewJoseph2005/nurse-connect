@@ -4,6 +4,7 @@ export { Division } from "./Division.js";
 export { Department } from "./Department.js";
 export { Nurse } from "./Nurse.js";
 export { HeadNurse } from "./HeadNurse.js";
+export { Ward } from "./Ward.js";
 export { Admin } from "./Admin.js";
 export { Schedule } from "./Schedule.js";
 export { ShiftSwapRequest } from "./ShiftSwapRequest.js";

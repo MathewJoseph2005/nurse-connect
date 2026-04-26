@@ -281,7 +281,7 @@ const AssignHeadNurseDepartment = () => {
                         </TableCell>
                         <TableCell className="font-medium">{hn.name}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{hn.username}</TableCell>
-                        <TableCell className="text-sm">{hn.phone || "â€”"}</TableCell>
+                        <TableCell className="text-sm">{hn.phone || "-"}</TableCell>
                         <TableCell className="text-sm">
                           {hn.departments?.name || "Not assigned"}
                         </TableCell>

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/integrations/api/client";
 
 type Session = { access_token: string; user: User };
 type User = { id: string; email?: string };
@@ -32,7 +32,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchRole = async (token: string) => {
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
       const res = await fetch(`${API_BASE}/auth/me`, {
         headers: {
           "Authorization": `Bearer ${token}`,
@@ -49,18 +49,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    // Set up auth listener first
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    // Set up auth listener
+    const { data: { subscription } } = api.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         if (session?.access_token) {
+          setLoading(true);
           // IMPORTANT: Use setTimeout to avoid deadlock in onAuthStateChange
           setTimeout(async () => {
-            const userRole = await fetchRole(session.access_token);
-            setRole(userRole);
-            setLoading(false);
+            try {
+              const userRole = await fetchRole(session.access_token);
+              setRole(userRole);
+            } catch (err) {
+              console.error("Auth listener role fetch error:", err);
+              setRole(null);
+            } finally {
+              setLoading(false);
+            }
           }, 0);
         } else {
           setRole(null);
@@ -69,25 +76,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     );
 
-    // Then check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.access_token) {
-        fetchRole(session.access_token).then((userRole) => {
-          setRole(userRole);
-          setLoading(false);
-        });
-      } else {
-        setLoading(false);
-      }
-    });
-
     return () => subscription.unsubscribe();
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await api.auth.signOut();
     setSession(null);
     setUser(null);
     setRole(null);

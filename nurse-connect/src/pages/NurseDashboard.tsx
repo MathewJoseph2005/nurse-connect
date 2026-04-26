@@ -8,17 +8,17 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import {
   Calendar, Clock, ArrowLeftRight, Bell, User, LogOut, Menu, X,
-  Activity, Building2, ChevronRight, Loader2, BellRing, Camera, Edit3, MoreVertical
+  Activity, Building2, ChevronRight, Loader2, BellRing, Camera, Edit3, MoreVertical, CheckCheck
 } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import logo from "@/assets/logo.svg";
 import { subscribeToPush, isPushSupported } from "@/lib/pushNotifications";
 
 const SHIFT_LABELS: Record<string, string> = {
-  day:     "Day Shift (6AM â€“ 6PM)",
-  night:   "Night Shift (6PM â€“ 6AM)",
-  morning: "Morning (6AM â€“ 2PM)",
-  evening: "Evening (2PM â€“ 10PM)",
+  day:     "Day Shift (6AM - 6PM)",
+  night:   "Night Shift (6PM - 6AM)",
+  morning: "Morning (6AM - 2PM)",
+  evening: "Evening (2PM - 10PM)",
 };
 
 const WORKLOAD_MAP: Record<string, { label: string; width: string }> = {
@@ -48,6 +48,7 @@ interface NurseProfile {
   previous_departments: string[] | null;
   divisions: { name: string } | null;
   departments: { name: string } | null;
+  photo_url?: string;
 }
 
 const NurseDashboard = () => {
@@ -100,7 +101,7 @@ const NurseDashboard = () => {
     const fetchProfile = async () => {
       const { data } = await supabase
         .from("nurses")
-        .select("id, name, phone, age, gender, division_id, current_department_id, experience_years, exam_score_percentage, previous_departments, divisions:divisions(name), departments:departments(name)")
+        .select("id, name, phone, age, gender, division_id, current_department_id, experience_years, exam_score_percentage, previous_departments, photo_url, divisions:divisions(name), departments:departments(name)")
         .eq("user_id", user.id)
         .maybeSingle();
       setNurseProfile(data as unknown as NurseProfile | null);
@@ -215,7 +216,7 @@ const NurseDashboard = () => {
               {nurseProfile?.divisions?.name
                 ? <span className="font-semibold">{nurseProfile.divisions.name}</span>
                 : "No Acuity"}
-              {" â€¢ "}{nurseProfile?.departments?.name || "Unassigned"}
+              {" • "}{nurseProfile?.departments?.name || "Unassigned"}
             </p>
           </div>
 
@@ -223,9 +224,14 @@ const NurseDashboard = () => {
           <div className="relative" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary hover:bg-primary/20 transition-colors"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary hover:bg-primary/20 transition-colors overflow-hidden"
             >
-              {initials}
+              <Avatar className="h-full w-full">
+                {nurseProfile?.photo_url ? (
+                  <AvatarImage src={nurseProfile.photo_url} alt={nurseProfile.name} className="object-cover" />
+                ) : null}
+                <AvatarFallback className="bg-transparent text-sm font-bold">{initials}</AvatarFallback>
+              </Avatar>
             </button>
 
             {profileMenuOpen && (
@@ -247,30 +253,6 @@ const NurseDashboard = () => {
                   >
                     <User size={16} />
                     <span>View Profile</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      navigate("/nurse-profile/edit");
-                      setProfileMenuOpen(false);
-                    }}
-                    className="flex w-full items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-accent transition-colors"
-                  >
-                    <Edit3 size={16} />
-                    <span>Edit Profile</span>
-                  </button>
-
-                  <div className="border-t my-1"></div>
-
-                  <button
-                    onClick={() => {
-                      handleSignOut();
-                      setProfileMenuOpen(false);
-                    }}
-                    className="flex w-full items-center gap-3 px-4 py-2 text-sm text-destructive hover:bg-accent transition-colors"
-                  >
-                    <LogOut size={16} />
-                    <span>Sign Out</span>
                   </button>
                 </div>
               </div>
@@ -301,7 +283,7 @@ const NurseDashboard = () => {
               departmentId={nurseProfile.current_department_id}
             />
           )}
-          {activeTab === "notifications" && user && <NotificationsView userId={user.id} onRead={() => setUnreadCount((c) => Math.max(0, c - 1))} />}
+          {activeTab === "notifications" && user && <NotificationsView userId={user.id} onRead={() => setUnreadCount((c) => Math.max(0, c - 1))} onNavigate={setActiveTab} />}
           {activeTab === "profile" && nurseProfile && <ProfileView profile={nurseProfile} />}
         </div>
       </main>
@@ -309,7 +291,7 @@ const NurseDashboard = () => {
   );
 };
 
-// â”€â”€â”€ Schedule View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Schedule View ----------------------------------------------
 
 const ScheduleView = ({ nurseId, deptName }: { nurseId: string; deptName: string }) => {
   const [schedules, setSchedules] = useState<any[]>([]);
@@ -422,7 +404,7 @@ const ScheduleView = ({ nurseId, deptName }: { nurseId: string; deptName: string
   );
 };
 
-// â”€â”€â”€ Swap View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Swap View --------------------------------------------------
 
 const SwapView = ({
   nurseId,
@@ -525,7 +507,7 @@ const SwapView = ({
 
       // Also filter client-side by same acuity (division_id) if nurse has one
       const candidates = (data || []).filter((s: any) => {
-        if (!divisionId) return true;          // no acuity set â†’ show all same-dept
+        if (!divisionId) return true;          // no acuity set -> show all same-dept
         return s.nurse?.division_id === divisionId;
       });
 
@@ -539,7 +521,7 @@ const SwapView = ({
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
-      const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
+      const apiBase = import.meta.env.VITE_API_BASE_URL || "/api";
       const res = await fetch(`${apiBase}/functions/swaps/nurse-request`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -573,7 +555,7 @@ const SwapView = ({
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
-      const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
+      const apiBase = import.meta.env.VITE_API_BASE_URL || "/api";
 
       const res = await fetch(`${apiBase}/functions/swaps/nurse-respond`, {
         method: "POST",
@@ -626,7 +608,7 @@ const SwapView = ({
                     }`}
                   >
                     {d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-                    {" â€” "}
+                    {" - "}
                     {SHIFT_LABELS[s.shift_type]?.split(" ")[0] || s.shift_type}
                   </button>
                 );
@@ -638,7 +620,7 @@ const SwapView = ({
                 <p className="text-xs font-medium text-muted-foreground">YOUR SHIFT</p>
                 <p className="mt-1 text-sm font-bold text-foreground">
                   {new Date(selected.duty_date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
-                  {" â€” "}
+                  {" - "}
                   {SHIFT_LABELS[selected.shift_type] || selected.shift_type}
                   {" at "}
                   {selected.department?.name || "Unknown"}
@@ -665,7 +647,7 @@ const SwapView = ({
                       <div>
                         <p className="text-sm font-bold text-foreground">{ns.nurse?.name || "Unknown"}</p>
                         <p className="text-xs text-muted-foreground">
-                          {SHIFT_LABELS[ns.shift_type]?.split(" ")[0] || ns.shift_type} â€¢ {ns.department?.name || "Unknown"}
+                          {SHIFT_LABELS[ns.shift_type]?.split(" ")[0] || ns.shift_type} • {ns.department?.name || "Unknown"}
                         </p>
                       </div>
                     </div>
@@ -744,10 +726,11 @@ const SwapView = ({
               } else if (h.status === "rejected") {
                 statusColor = "bg-destructive/10 text-destructive border-0";
               } else if (h.status === "pending_target") {
-                statusLabel = "Pending Target Nurse";
+                statusLabel = "Waiting for Colleague";
                 statusColor = "bg-amber-100 text-amber-700 border-0 dark:bg-amber-900/30 dark:text-amber-400";
               } else if (h.status === "pending_admin" || h.status === "pending") {
-                statusLabel = "Pending Head Nurse";
+                // Should not happen anymore, but handle legacy data
+                statusLabel = "Finalizing";
                 statusColor = "bg-blue-100 text-blue-700 border-0 dark:bg-blue-900/30 dark:text-blue-400";
               }
 
@@ -763,7 +746,11 @@ const SwapView = ({
                       </p>
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {h.requester_schedule?.duty_date} â€¢ {h.requester_schedule?.shift_type} ({h.requester_schedule?.department?.name})
+                      {h.requester_schedule ? (
+                        <>{h.requester_schedule.duty_date} • {h.requester_schedule.shift_type} ({h.requester_schedule.department?.name})</>
+                      ) : (
+                        "Schedule details unavailable"
+                      )}
                     </p>
                   </div>
                   <Badge className={statusColor}>
@@ -779,9 +766,9 @@ const SwapView = ({
   );
 };
 
-// â”€â”€â”€ Notifications View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Notifications View ---------------------------------------------
 
-const NotificationsView = ({ userId, onRead }: { userId: string; onRead: () => void }) => {
+const NotificationsView = ({ userId, onRead, onNavigate }: { userId: string; onRead: () => void; onNavigate: (tab: string) => void }) => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -807,6 +794,25 @@ const NotificationsView = ({ userId, onRead }: { userId: string; onRead: () => v
     onRead();
   };
 
+  const markAllAsRead = async () => {
+    const unreadIds = notifications.filter(n => !n.is_read).map(n => n.id);
+    if (unreadIds.length === 0) return;
+    await supabase.from("notifications").update({ is_read: true }).in("id", unreadIds);
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    unreadIds.forEach(() => onRead());
+  };
+
+  const handleNotificationClick = (n: any) => {
+    if (!n.is_read) markAsRead(n.id);
+    
+    // Redirect based on type
+    if (n.notification_type?.startsWith("swap_")) {
+      onNavigate("swap");
+    } else if (n.notification_type === "schedule_published" || n.notification_type?.startsWith("duty_reminder_")) {
+      onNavigate("schedule");
+    }
+  };
+
   if (loading) {
     return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
@@ -825,36 +831,72 @@ const NotificationsView = ({ userId, onRead }: { userId: string; onRead: () => v
 
   return (
     <div className="space-y-3 animate-fade-in">
-      <h2 className="text-lg font-bold text-foreground">Notifications</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-bold text-foreground">Notifications</h2>
+        {notifications.some((n) => !n.is_read) && (
+          <Button 
+            variant="pink" 
+            size="sm" 
+            onClick={markAllAsRead} 
+            className="text-xs h-8 px-3 rounded-full shadow-sm hover:scale-105 transition-transform"
+          >
+            <CheckCheck className="mr-1 h-3 w-3" />
+            Mark all as read
+          </Button>
+        )}
+      </div>
       {notifications.length === 0 ? (
-        <div className="rounded-xl bg-card p-12 text-center shadow-card">
-          <Bell className="mx-auto h-10 w-10 text-muted-foreground/30" />
-          <p className="mt-4 text-sm text-muted-foreground">No notifications yet.</p>
+        <div className="rounded-xl bg-card p-12 text-center shadow-card border border-border/50">
+          <Bell className="mx-auto h-12 w-12 text-muted-foreground/20 animate-pulse" />
+          <p className="mt-4 text-sm text-muted-foreground font-medium">No notifications yet.</p>
         </div>
       ) : (
-        notifications.map((n) => (
-          <div
-            key={n.id}
-            onClick={() => !n.is_read && markAsRead(n.id)}
-            className={`flex items-start gap-3 rounded-xl p-4 shadow-card cursor-pointer transition-colors ${
-              !n.is_read ? "border-l-4 border-accent bg-accent/5" : "bg-card"
-            }`}
-          >
-            <Bell className={`mt-0.5 h-5 w-5 flex-shrink-0 ${!n.is_read ? "text-accent" : "text-muted-foreground"}`} />
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-foreground">{n.title}</p>
-              <p className="text-sm text-foreground">{n.message}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{formatTime(n.created_at)}</p>
+        <div className="space-y-3">
+          {notifications.map((n) => (
+            <div
+              key={n.id}
+              onClick={() => handleNotificationClick(n)}
+              className={`group flex items-start gap-4 rounded-xl p-4 shadow-sm border border-border/40 cursor-pointer transition-all hover:shadow-md ${
+                !n.is_read ? "border-l-4 border-pink-500 bg-pink-50/30" : "bg-card opacity-90"
+              }`}
+            >
+              <div className={`mt-1 flex h-9 w-9 items-center justify-center rounded-lg ${!n.is_read ? "bg-pink-100 text-pink-600" : "bg-muted text-muted-foreground"}`}>
+                <Bell className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-bold text-foreground truncate">{n.title}</p>
+                  <p className="text-[10px] text-muted-foreground whitespace-nowrap">{formatTime(n.created_at)}</p>
+                </div>
+                <p className="mt-1 text-sm text-foreground/80 leading-relaxed line-clamp-2">{n.message}</p>
+                {!n.is_read && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        markAsRead(n.id);
+                      }}
+                      className="h-7 text-[10px] px-2 py-0 border-pink-200 text-pink-600 hover:bg-pink-50"
+                    >
+                      Mark as read
+                    </Button>
+                  </div>
+                )}
+              </div>
+              {!n.is_read && (
+                <div className="mt-2 h-2.5 w-2.5 rounded-full bg-pink-500 shadow-[0_0_8px_rgba(236,72,153,0.5)]" />
+              )}
             </div>
-            {!n.is_read && <span className="mt-1 h-2 w-2 rounded-full bg-accent flex-shrink-0" />}
-          </div>
-        ))
+          ))}
+        </div>
       )}
     </div>
   );
 };
 
-// â”€â”€â”€ Profile View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Profile View ---------------------------------------------
 
 const ProfileView = ({ profile }: { profile: NurseProfile }) => {
   const { user } = useAuth();
@@ -919,12 +961,12 @@ const ProfileView = ({ profile }: { profile: NurseProfile }) => {
 
   const fields = [
     { label: "Phone", value: profile.phone },
-    { label: "Age", value: profile.age ? String(profile.age) : "â€”" },
-    { label: "Gender", value: profile.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : "â€”" },
+    { label: "Age", value: profile.age ? String(profile.age) : "-" },
+    { label: "Gender", value: profile.gender ? profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1) : "-" },
     { label: "Acuity Level", value: profile.divisions?.name || "Not assigned" },
     { label: "Current Dept", value: profile.departments?.name || "Not assigned" },
-    { label: "Exam Score", value: profile.exam_score_percentage ? `${profile.exam_score_percentage}%` : "â€”" },
-    { label: "Experience", value: profile.experience_years ? `${profile.experience_years} years` : "â€”" },
+    { label: "Exam Score", value: profile.exam_score_percentage ? `${profile.exam_score_percentage}%` : "-" },
+    { label: "Experience", value: profile.experience_years ? `${profile.experience_years} years` : "-" },
   ];
 
   return (
@@ -985,7 +1027,7 @@ const ProfileView = ({ profile }: { profile: NurseProfile }) => {
   );
 };
 
-// â”€â”€â”€ Helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Helper -----------------------------------------------------
 
 function getDateOfISOWeek(week: number, year: number): Date {
   const jan4 = new Date(year, 0, 4);

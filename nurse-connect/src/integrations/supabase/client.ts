@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 const TOKEN_KEY = "nurseflow_access_token";
 const USER_KEY = "nurseflow_user";
 
@@ -323,8 +323,8 @@ export const supabase = {
           try {
             const token = getStoredToken();
             const form = new FormData();
-            form.append("file", file);
             form.append("path", path);
+            form.append("file", file);
             const res = await fetch(`${API_BASE}/storage/${bucket}/upload`, {
               method: "POST",
               headers: token ? { Authorization: `Bearer ${token}` } : {},

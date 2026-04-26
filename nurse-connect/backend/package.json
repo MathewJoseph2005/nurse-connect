@@ -14,16 +14,22 @@
     "seed-acuity": "node scripts/seed-acuity.mjs",
     "seed-test-nurses": "node scripts/seed-test-nurses.mjs",
     "seed-schedules": "node scripts/seed-schedules.mjs",
-    "export-credentials": "node scripts/export-credentials-pdf.mjs"
+    "export-credentials": "node scripts/export-credentials-pdf.mjs",
+    "export-head-nurse-credentials": "node scripts/export-head-nurse-credentials-excel.mjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
+    "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
     "express": "^4.21.2",
+    "express-rate-limit": "^8.4.1",
     "groq-sdk": "^1.1.2",
+    "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.8.2",
+    "morgan": "^1.10.1",
     "multer": "^1.4.5-lts.1"
   }
 }

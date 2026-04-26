@@ -3,13 +3,17 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "dev": "vite",
     "backend:install": "npm --prefix backend install",
     "backend:dev": "npm --prefix backend run dev",
     "backend:start": "npm --prefix backend run start",
-    "build": "vite build",
+    "build": "npm install --prefix backend && vite build",
     "build:dev": "vite build --mode development",
+    "start": "npm --prefix backend start",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",

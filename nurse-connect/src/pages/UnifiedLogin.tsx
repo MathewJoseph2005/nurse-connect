@@ -21,12 +21,12 @@ const UnifiedLogin = () => {
   // Redirect if already logged in
   useEffect(() => {
     if (!authLoading && user && authRole) {
-      if (authRole === "nurse") {
-        navigate("/nurse-dashboard", { replace: true });
-      } else if (authRole === "head_nurse") {
-        navigate("/headnurse-dashboard", { replace: true });
-      } else if (authRole === "admin") {
-        navigate("/admin-dashboard", { replace: true });
+      console.log("Redirecting user with role:", authRole);
+      const target = authRole === "nurse" ? "/nurse-dashboard" : 
+                     authRole === "head_nurse" ? "/headnurse-dashboard" : 
+                     authRole === "admin" ? "/admin-dashboard" : null;
+      if (target) {
+        navigate(target, { replace: true });
       }
     }
   }, [authLoading, user, authRole, navigate]);

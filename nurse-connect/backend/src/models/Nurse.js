@@ -9,6 +9,7 @@ const nurseSchema = new mongoose.Schema(
     gender: { type: String, enum: ["male", "female", "other", null], default: null },
     division_id: { type: mongoose.Schema.Types.ObjectId, ref: "Division", default: null },
     current_department_id: { type: mongoose.Schema.Types.ObjectId, ref: "Department", default: null },
+    current_ward_id: { type: mongoose.Schema.Types.ObjectId, ref: "Ward", default: null },
     previous_departments: [{ type: mongoose.Schema.Types.ObjectId, ref: "Department" }],
     exam_score_percentage: { type: Number, default: null },
     experience_years: { type: Number, default: 0 },

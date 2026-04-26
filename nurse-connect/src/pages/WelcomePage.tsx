@@ -1,11 +1,16 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Menu, X, MapPin, Award, Users, ChevronRight, Phone, Heart, Stethoscope } from "lucide-react";
+import { Menu, X, Award, Users, ChevronRight, Phone, Heart, Stethoscope } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo-banner.svg";
 import nurse1 from "@/assets/nurses/nurse-1.jpg";
 import nurse2 from "@/assets/nurses/nurse-2.jpg";
 import nurse3 from "@/assets/nurses/nurse-3.jpg";
+import caritasHospitalImage from "../../nurse-photo/hospital/caritas.jpeg";
+import hdpHospitalImage from "../../nurse-photo/hospital/hdp.png";
+import kmmHospitalImage from "../../nurse-photo/hospital/kmm.jpeg";
+import familyHospitalImage from "../../nurse-photo/hospital/caritasfamily.jpeg";
+import mathaHospitalImage from "../../nurse-photo/hospital/caritasMatha.jpeg";
 
 const slides = [
   { image: nurse1, title: "Guided by Expertise, Defined by Compassion", subtitle: "Experience healthcare at its finest at Caritas Hospital" },
@@ -154,15 +159,112 @@ const WelcomePage = () => {
       </section>
 
       {/* Location */}
-      <section id="location" className="py-20">
+      <section id="location" className="bg-[#f1f1f1] py-20">
         <div className="container mx-auto px-4">
           <h2 className="text-center text-3xl font-bold text-foreground">Our <span className="text-primary">Location</span></h2>
-          <div className="mx-auto mt-8 max-w-xl rounded-xl bg-card p-8 shadow-card text-center">
-            <MapPin className="mx-auto h-10 w-10 text-accent" />
-            <h3 className="mt-4 text-xl font-bold text-foreground">Caritas Hospital & Institute of Health Sciences</h3>
-            <p className="mt-2 text-muted-foreground">Thellakom P.O., Kottayam<br />Kerala - 686630, India</p>
-            <p className="mt-4 text-sm text-muted-foreground">Open 24/7 • Emergency: +91(0) 9496 555 200</p>
-            <p className="mt-1 text-sm text-muted-foreground">General: 0481 279 2500</p>
+          <p className="mx-auto mt-3 max-w-2xl text-center text-muted-foreground">Discover our network of exceptional hospitals, each committed to providing comprehensive healthcare with expertise and compassion.</p>
+
+          <div className="mt-12">
+            <h3 className="mb-4 text-center text-xl font-semibold text-foreground">Caritas Hospital & Institute of Health Sciences</h3>
+            {[
+              {
+                name: "Caritas Hospital & Institute of Health Sciences",
+                addressLine1: "Thellakom P.O., Kottayam",
+                addressLine2: "Kerala - 686630",
+                phone: "0481 2792500",
+                link: "https://www.caritashospital.org/",
+                image: caritasHospitalImage,
+                alt: "Caritas Hospital & Institute of Health Sciences",
+              },
+            ].map((hospital) => (
+              <div key={hospital.name} className="box-container marged animation-element bounce-up in-view mx-auto flex max-w-xl justify-center">
+                <div className="block revealOnScroll rounded-xl bg-white shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-lg" data-animation="flipInX" data-timeout="300">
+                  <div className="image overflow-hidden rounded-xl">
+                    <img src={hospital.image} alt={hospital.alt} className="box-image h-[170px] w-full object-cover" />
+                    <div className="box-content bg-white p-6">
+                      <h5 className="text-lg font-bold leading-tight text-foreground">{hospital.name}</h5>
+                      <span className="mt-2 block text-sm leading-6 text-muted-foreground">
+                        {hospital.addressLine1}
+                        <br />
+                        {hospital.addressLine2}
+                      </span>
+                      <h6 className="mt-3 text-xl font-bold leading-none text-foreground">{hospital.phone}</h6>
+                      <div className="mt-4">
+                        <a href={hospital.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm font-semibold text-[#C71782] transition-opacity hover:opacity-80">
+                          Know More <ChevronRight className="h-4 w-4" />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-12">
+            <h3 className="mb-6 text-xl font-semibold text-foreground">Our Other Locations</h3>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
+              {[
+                {
+                  name: "Caritas HDP Hospital",
+                  addressLine1: "Kaipuzha, Kottayam",
+                  addressLine2: "Kerala - 686602",
+                  phone: "0481 2711418",
+                  link: "https://www.caritashospital.org/",
+                  image: hdpHospitalImage,
+                  alt: "Caritas HDP Hospital",
+                },
+                {
+                  name: "Caritas KMM Hospital",
+                  addressLine1: "Thiruvathukkal Rd, Puthenangady",
+                  addressLine2: "Kottayam, Kerala - 686001",
+                  phone: "0481 2580047",
+                  link: "https://www.caritashospital.org/",
+                  image: kmmHospitalImage,
+                  alt: "Caritas KMM Hospital",
+                },
+                {
+                  name: "Caritas Family Hospital",
+                  addressLine1: "Karipal Building, Vadavathoor P.O",
+                  addressLine2: "Kalathipady, Kerala - 686018",
+                  phone: "0481 2570100",
+                  link: "https://www.caritasfamilyhospital.com/",
+                  image: familyHospitalImage,
+                  alt: "Caritas Family Hospital",
+                },
+                {
+                  name: "Caritas Matha Hospital",
+                  addressLine1: "MC Road, Thellakom (P.O),",
+                  addressLine2: "Kottayam, Kerala - 686630",
+                  phone: "0481 2792500",
+                  link: "https://caritasmathahospital.com/",
+                  image: mathaHospitalImage,
+                  alt: "Caritas Matha Hospital",
+                },
+              ].map((hospital) => (
+                <div key={hospital.name} className="box-container marged animation-element bounce-up in-view">
+                  <div className="block revealOnScroll rounded-xl bg-white p-0 shadow-card transition-transform hover:-translate-y-1" data-animation="flipInX" data-timeout="300">
+                    <div className="image overflow-hidden rounded-xl">
+                      <img src={hospital.image} alt={hospital.alt} className="box-image h-[145px] w-full object-cover" />
+                      <div className="box-content bg-white p-6">
+                        <h5 className="text-lg font-bold leading-tight text-foreground">{hospital.name}</h5>
+                        <span className="mt-2 block text-sm leading-6 text-muted-foreground">
+                          {hospital.addressLine1}
+                          <br />
+                          {hospital.addressLine2}
+                        </span>
+                        <h6 className="mt-3 text-xl font-bold leading-none text-foreground">{hospital.phone}</h6>
+                        <div className="mt-4">
+                          <a href={hospital.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-sm font-semibold text-[#C71782] transition-opacity hover:opacity-80">
+                            Know More <ChevronRight className="h-4 w-4" />
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>

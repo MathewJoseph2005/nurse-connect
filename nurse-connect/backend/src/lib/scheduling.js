@@ -86,7 +86,9 @@ export function createBalancedScheduleEntries(
   maxShiftsPerWeek = 3,
   weekNumber,
   year,
-  creatorId
+  creatorId,
+  wardId = null,
+  acuityRequirements = {}
 ) {
   if (nursesInDept.length === 0) return [];
   
@@ -115,32 +117,53 @@ export function createBalancedScheduleEntries(
 
   // ── Step 3: how many nurses per slot? ────────────────────────────────────
   // Target: each nurse works at most `maxShiftsPerWeek` shifts/week.
-  // Total work capacity = total × maxShiftsPerWeek.
-  // Total slots         = 7 days × SHIFTS.length slots.
-  // Nurses per slot     = capacity / slots (at least 1).
-  const nursesPerSlot = Math.max(1, Math.round((total * maxShiftsPerWeek) / (days.length * SHIFTS.length)));
+  const globalNursesPerSlot = Math.max(1, Math.round((total * maxShiftsPerWeek) / (days.length * SHIFTS.length)));
+  
+  // Use specific acuity requirements if provided, otherwise fallback to global average
+  const acuityTargets = { ...acuityRequirements };
+  if (Object.keys(acuityTargets).length === 0) {
+    // If no specific targets, we try to distribute nurses from each division fairly
+    Object.keys(byDivision).forEach(divId => {
+      acuityTargets[divId] = Math.max(1, Math.round(byDivision[divId].length * maxShiftsPerWeek / (days.length * SHIFTS.length)));
+    });
+  }
 
   const entries = [];
 
   // ── Step 4: assign nurses to every (day, shift) slot ─────────────────────
   for (const day of days) {
     for (const shift of SHIFTS) {
-      // Build a sorted candidate list: eligible first, sorted by load.
-      // We shuffle first so nurses with the SAME load are picked randomly!
-      const shuffled = [...rosterOrder].sort(() => Math.random() - 0.5);
-      const candidates = shuffled.sort((a, b) => {
-        const ta = track.get(a._id.toString());
-        const tb = track.get(b._id.toString());
-        return ta.shiftsThisWeek - tb.shiftsThisWeek; // least loaded first
-      });
+      for (const divId of Object.keys(acuityTargets)) {
+        const targetForThisDiv = acuityTargets[divId] || 0;
+        if (targetForThisDiv === 0) continue;
 
-      let picked = 0;
+        let pickedForDiv = 0;
+        let candidates = [];
+        
+        // Primary candidates: from this division
+        const primaryNurses = byDivision[divId] || [];
+        candidates = [...primaryNurses].sort(() => Math.random() - 0.5).sort((a, b) => {
+          const ta = track.get(a._id.toString());
+          const tb = track.get(b._id.toString());
+          return ta.shiftsThisWeek - tb.shiftsThisWeek;
+        });
 
-      for (const nurse of candidates) {
-        if (picked >= nursesPerSlot) break;
+        // If we can't find enough in primary, we'll look at ALL nurses (the closest available)
+        // Note: For simplicity in the non-AI fallback, we just look at all other nurses
+        const secondaryNurses = rosterOrder.filter(n => (n.division_id ? n.division_id.toString() : "no_division") !== divId);
+        const secondaryCandidates = [...secondaryNurses].sort(() => Math.random() - 0.5).sort((a, b) => {
+          const ta = track.get(a._id.toString());
+          const tb = track.get(b._id.toString());
+          return ta.shiftsThisWeek - tb.shiftsThisWeek;
+        });
 
-        const nid = nurse._id.toString();
-        const t   = track.get(nid);
+        const allCandidates = [...candidates, ...secondaryCandidates];
+
+        for (const nurse of allCandidates) {
+          if (pickedForDiv >= targetForThisDiv) break;
+
+          const nid = nurse._id.toString();
+          const t   = track.get(nid);
 
         // ── Rule 1: one shift per day ──────────────────────────────────
         if (t.workedDates.has(day)) continue;
@@ -163,6 +186,7 @@ export function createBalancedScheduleEntries(
         entries.push({
           nurse_id:    nurse._id,
           department_id: departmentId,
+          ward_id: wardId,
           duty_date:   day,
           shift_type:  shift,
           week_number: weekNumber,
@@ -181,12 +205,13 @@ export function createBalancedScheduleEntries(
 
         t.lastEntry = { date: day, shift };
 
-        picked++;
+        pickedForDiv++;
       }
+    }
 
-      // ── Fallback: if we still have zero nurses for this slot (very small
-      //    departments), relax Rule 3 only and try again ──────────────────
-      if (picked === 0) {
+      // ── Fallback ──────────────────
+      const totalPicked = entries.filter(e => e.duty_date === day && e.shift_type === shift).length;
+      if (totalPicked === 0) {
         for (const nurse of candidates) {
           const nid = nurse._id.toString();
           const t   = track.get(nid);
@@ -206,6 +231,7 @@ export function createBalancedScheduleEntries(
           entries.push({
             nurse_id:    nurse._id,
             department_id: departmentId,
+            ward_id: wardId,
             duty_date:   day,
             shift_type:  shift,
             week_number: weekNumber,
@@ -232,13 +258,17 @@ export function createBalancedScheduleEntries(
 
 import Groq from 'groq-sdk';
 
-export async function generateScheduleWithGroq(nursesInDept, departmentId, days, shiftPattern, maxShiftsPerWeek, weekNumber, year, creatorId, previousSchedule) {
+export async function generateScheduleWithGroq(nursesInDept, departmentId, wardId, days, shiftPattern, maxShiftsPerWeek, weekNumber, year, creatorId, previousSchedule, acuityRequirements = {}) {
   if (!process.env.GROQ_API_KEY || process.env.GROQ_API_KEY.includes('your_api_key')) {
     throw new Error('Groq API Key not configured in .env');
   }
   const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
   const SHIFTS = shiftPattern === '8_hours' ? ['morning', 'evening', 'night'] : ['day', 'night'];
-  const nurseData = nursesInDept.map(n => ({ id: n._id.toString(), name: n.name }));
+  const nurseData = nursesInDept.map(n => ({ 
+    id: n._id.toString(), 
+    name: n.name,
+    acuity_level: n.division_id ? (n.division_id.acuity_level || n.division_id.name || "Unknown") : "Unknown"
+  }));
   const prevData = previousSchedule.map(s => ({ nurse_id: s.nurse_id.toString(), duty_date: s.duty_date, shift_type: s.shift_type }));
   
   const prompt = `You are an expert nurse scheduler. Create a schedule for this week.
@@ -251,6 +281,12 @@ Rules:
 6. If a nurse works 'night', they CANNOT work 'morning' or 'day' the very next day.
 7. Distribute shifts fairly.
 8. Look at last week's schedule to ensure fair rotation (e.g., if someone worked many nights last week, give them days this week): ${JSON.stringify(prevData)}
+9. STAFFING TARGETS (CRITICAL): For each shift, you MUST try to assign the following number of nurses for each acuity level:
+${Object.entries(acuityRequirements).map(([divId, count]) => {
+  const div = nursesInDept.find(n => n.division_id && n.division_id._id.toString() === divId)?.division_id;
+  return `- Acuity Level ${div?.acuity_level || div?.name || divId}: ${count} nurses`;
+}).join('\n')}
+10. If there aren't enough nurses of a specific acuity, use nurses of the closest available acuity level.
 
 Return ONLY a valid JSON array of objects with keys: { "nurse_id": string, "duty_date": string, "shift_type": string } wrapped in an object like { "schedule": [...] }`;
 
@@ -264,5 +300,5 @@ Return ONLY a valid JSON array of objects with keys: { "nurse_id": string, "duty
   const parsed = JSON.parse(content);
   const arr = Array.isArray(parsed) ? parsed : (parsed.schedule || Object.values(parsed)[0]);
   if (!Array.isArray(arr)) throw new Error('Invalid Groq format');
-  return arr.map(e => ({ ...e, department_id: departmentId, week_number: weekNumber, year, created_by: creatorId }));
+  return arr.map(e => ({ ...e, department_id: departmentId, ward_id: wardId, week_number: weekNumber, year, created_by: creatorId }));
 }

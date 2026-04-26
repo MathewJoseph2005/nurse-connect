@@ -26,7 +26,7 @@ export async function getVapidPublicKey(): Promise<string> {
   }
 
   // Generate new keys via edge function
-  const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
+  const apiBase = import.meta.env.VITE_API_BASE_URL || "/api";
   const response = await fetch(
     `${apiBase}/functions/generate-vapid-keys`,
     {
